@@ -1,0 +1,11 @@
+####################
+## Project Specific
+####################
+
+*.elf
+*.cfg
+*.dge
+id1
+id1/*.pak
+id1/*.cfg
+source/*.o
