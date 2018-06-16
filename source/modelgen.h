@@ -34,11 +34,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <math.h>
 #include <string.h>
 
-#include "cmdlib.h"
-#include "scriplib.h"
-#include "trilib.h"
-#include "lbmlib.h"
-#include "mathlib.h"
+//#include "cmdlib.h"
+//#include "scriplib.h"
+//#include "trilib.h"
+//#include "lbmlib.h"
+//#include "mathlib.h"
 
 #endif
 
@@ -73,6 +73,25 @@ typedef struct {
 	int			flags;
 	float		size;
 } mdl_t;
+
+//Dan East:
+typedef struct {
+	int			ident;
+	int			version;
+	vec3_FPM_t		scale;
+	vec3_FPM_t		scale_origin;
+	fixedpoint_t	boundingradius;
+	vec3_FPM_t		eyeposition;
+	int			numskins;
+	int			skinwidth;
+	int			skinheight;
+	int			numverts;
+	int			numtris;
+	int			numframes;
+	synctype_t	synctype;
+	int			flags;
+	fixedpoint_t	size;
+} mdl_FPM_t;
 
 // TODO: could be shorts
 
@@ -116,7 +135,11 @@ typedef struct {
 typedef struct {
 	float	interval;
 } daliasinterval_t;
-
+/*
+typedef struct {
+	fixedpoint_t	interval;
+} daliasinterval_FPM_t;
+*/
 typedef struct {
 	float	interval;
 } daliasskininterval_t;

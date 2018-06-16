@@ -329,8 +329,8 @@ char *Sys_ConsoleInput(void)
 		return text;
 	}
 	return NULL;
-}
-*/
+}*/
+
 #if !id386
 void Sys_HighFPPrecision (void)
 {

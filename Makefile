@@ -26,11 +26,12 @@ INCLUDES :=
 # Libs
 LIBS += 
 
-NET_FOLDER = net
+NET_FOLDER = local_net
 
 CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
 CFILES = 			source/$(NET_FOLDER)/host.c \
 					source/$(NET_FOLDER)/menu.c \
+					source/$(NET_FOLDER)/screen.c \
 					source/$(NET_FOLDER)/net_dgrm.c \
 					source/$(NET_FOLDER)/net_loop.c \
 					source/$(NET_FOLDER)/net_main.c \
@@ -89,7 +90,6 @@ CFILES	+=			source/cd_null.c \
 					source/r_surf.c \
 					source/r_vars.c \
 					source/sbar.c \
-					source/screen.c \
 					source/snd_dma.c \
 					source/snd_mix.c \
 					source/sv_main.c \

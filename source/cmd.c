@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -38,6 +38,7 @@ int trashtest;
 int *trashspot;
 
 qboolean	cmd_wait;
+
 
 //=============================================================================
 
@@ -86,7 +87,7 @@ Adds command text at the end of the buffer
 void Cbuf_AddText (char *text)
 {
 	int		l;
-	
+
 	l = Q_strlen (text);
 
 	if (cmd_text.cursize + l >= cmd_text.maxsize)
@@ -123,10 +124,10 @@ void Cbuf_InsertText (char *text)
 	}
 	else
 		temp = NULL;	// shut up compiler
-		
+
 // add the entire text of the file
 	Cbuf_AddText (text);
-	
+
 // add the copied off data
 	if (templen)
 	{
@@ -146,7 +147,7 @@ void Cbuf_Execute (void)
 	char	*text;
 	char	line[1024];
 	int		quotes;
-	
+
 	while (cmd_text.cursize)
 	{
 // find a \n or ; line break
@@ -162,11 +163,11 @@ void Cbuf_Execute (void)
 			if (text[i] == '\n')
 				break;
 		}
-			
-				
-		memcpy (line, text, i);
+
+
+		Q_memcpy (line, text, i);
 		line[i] = 0;
-		
+
 // delete the text from the command buffer and move remaining commands down
 // this is necessary because commands (exec, alias) can insert data at the
 // beginning of the text buffer
@@ -182,7 +183,7 @@ void Cbuf_Execute (void)
 
 // execute the command line
 		Cmd_ExecuteString (line, src_command);
-		
+
 		if (cmd_wait)
 		{	// skip out while text still remains in buffer, leaving it
 			// for next frame
@@ -215,7 +216,7 @@ void Cmd_StuffCmds_f (void)
 	int		i, j;
 	int		s;
 	char	*text, *build, c;
-		
+
 	if (Cmd_Argc () != 1)
 	{
 		Con_Printf ("stuffcmds : execute command line parameters\n");
@@ -232,7 +233,7 @@ void Cmd_StuffCmds_f (void)
 	}
 	if (!s)
 		return;
-		
+
 	text = Z_Malloc (s+1);
 	text[0] = 0;
 	for (i=1 ; i<com_argc ; i++)
@@ -243,11 +244,11 @@ void Cmd_StuffCmds_f (void)
 		if (i != com_argc-1)
 			Q_strcat (text, " ");
 	}
-	
+
 // pull out the commands
 	build = Z_Malloc (s+1);
 	build[0] = 0;
-	
+
 	for (i=0 ; i<s-1 ; i++)
 	{
 		if (text[i] == '+')
@@ -259,17 +260,17 @@ void Cmd_StuffCmds_f (void)
 
 			c = text[j];
 			text[j] = 0;
-			
+
 			Q_strcat (build, text+i);
 			Q_strcat (build, "\n");
 			text[j] = c;
 			i = j-1;
 		}
 	}
-	
+
 	if (build[0])
 		Cbuf_InsertText (build);
-	
+
 	Z_Free (text);
 	Z_Free (build);
 }
@@ -299,7 +300,7 @@ void Cmd_Exec_f (void)
 		return;
 	}
 	Con_Printf ("execing %s\n",Cmd_Argv(1));
-	
+
 	Cbuf_InsertText (f);
 	Hunk_FreeToLowMark (mark);
 }
@@ -315,7 +316,7 @@ Just prints the rest of the line to the console
 void Cmd_Echo_f (void)
 {
 	int		i;
-	
+
 	for (i=1 ; i<Cmd_Argc() ; i++)
 		Con_Printf ("%s ",Cmd_Argv(i));
 	Con_Printf ("\n");
@@ -332,7 +333,7 @@ Creates a new command that executes a command string (possibly ; seperated)
 char *CopyString (char *in)
 {
 	char	*out;
-	
+
 	out = Z_Malloc (strlen(in)+1);
 	strcpy (out, in);
 	return out;
@@ -376,7 +377,7 @@ void Cmd_Alias_f (void)
 		a->next = cmd_alias;
 		cmd_alias = a;
 	}
-	strcpy (a->name, s);	
+	strcpy (a->name, s);
 
 // copy the rest of the command line
 	cmd[0] = 0;		// start out with a null string
@@ -388,7 +389,7 @@ void Cmd_Alias_f (void)
 			strcat (cmd, " ");
 	}
 	strcat (cmd, "\n");
-	
+
 	a->value = CopyString (cmd);
 }
 
@@ -420,6 +421,95 @@ cmd_source_t	cmd_source;
 
 static	cmd_function_t	*cmd_functions;		// possible commands to execute
 
+
+// 2000-01-09 CmdList command by Maddes  start
+
+/*
+
+========
+
+Cmd_List
+
+========
+
+*/
+
+void Cmd_List_f (void)
+
+{
+
+	cmd_function_t	*cmd;
+
+	char 		*partial;
+
+	int		len;
+
+	int		count;
+
+
+
+	if (Cmd_Argc() > 1)
+
+	{
+
+		partial = Cmd_Argv (1);
+
+		len = Q_strlen(partial);
+
+	}
+
+	else
+
+	{
+
+		partial = NULL;
+
+		len = 0;
+
+	}
+
+	
+
+	count=0;
+
+	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
+
+	{
+
+		if (partial && Q_strncmp (partial,cmd->name, len))
+
+		{
+
+			continue;
+
+		}
+
+		Con_Printf ("\"%s\"\n", cmd->name);
+
+		count++;
+
+	}
+
+
+
+	Con_Printf ("%i command(s)", count);
+
+	if (partial)
+
+	{
+
+		Con_Printf (" beginning with \"%s\"", partial);
+
+	}
+
+	Con_Printf ("\n");
+
+}
+
+// 2000-01-09 CmdList command by Maddes  end
+
+
+
 /*
 ============
 Cmd_Init
@@ -436,6 +526,8 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("alias",Cmd_Alias_f);
 	Cmd_AddCommand ("cmd", Cmd_ForwardToServer);
 	Cmd_AddCommand ("wait", Cmd_Wait_f);
+	Cmd_AddCommand ("cmdlist", Cmd_List_f);	// 2000-01-09 CmdList command by Maddes
+	Cmd_AddCommand ("cvarlist", Cvar_List_f);	// 2000-01-09 CvarList command by Maddes
 }
 
 /*
@@ -455,9 +547,9 @@ Cmd_Argv
 */
 char	*Cmd_Argv (int arg)
 {
-	if ( (unsigned)arg >= cmd_argc )
+	if ( (unsigned)arg >= (unsigned)cmd_argc )
 		return cmd_null_string;
-	return cmd_argv[arg];	
+	return cmd_argv[arg];
 }
 
 /*
@@ -481,14 +573,14 @@ Parses the given string into command line tokens.
 void Cmd_TokenizeString (char *text)
 {
 	int		i;
-	
+
 // clear the args from the last string
 	for (i=0 ; i<cmd_argc ; i++)
 		Z_Free (cmd_argv[i]);
-		
+
 	cmd_argc = 0;
 	cmd_args = NULL;
-	
+
 	while (1)
 	{
 // skip whitespace up to a /n
@@ -496,7 +588,7 @@ void Cmd_TokenizeString (char *text)
 		{
 			text++;
 		}
-		
+
 		if (*text == '\n')
 		{	// a newline seperates commands in the buffer
 			text++;
@@ -505,10 +597,10 @@ void Cmd_TokenizeString (char *text)
 
 		if (!*text)
 			return;
-	
+
 		if (cmd_argc == 1)
 			 cmd_args = text;
-			
+
 		text = COM_Parse (text);
 		if (!text)
 			return;
@@ -520,7 +612,7 @@ void Cmd_TokenizeString (char *text)
 			cmd_argc++;
 		}
 	}
-	
+
 }
 
 
@@ -532,17 +624,17 @@ Cmd_AddCommand
 void	Cmd_AddCommand (char *cmd_name, xcommand_t function)
 {
 	cmd_function_t	*cmd;
-	
+
 	if (host_initialized)	// because hunk allocation would get stomped
 		Sys_Error ("Cmd_AddCommand after host_initialized");
-		
+
 // fail if the command is a variable name
 	if (Cvar_VariableString(cmd_name)[0])
 	{
 		Con_Printf ("Cmd_AddCommand: %s already defined as a var\n", cmd_name);
 		return;
 	}
-	
+
 // fail if the command already exists
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
 	{
@@ -585,20 +677,24 @@ qboolean	Cmd_Exists (char *cmd_name)
 Cmd_CompleteCommand
 ============
 */
-char *Cmd_CompleteCommand (char *partial)
-{
+char *Cmd_CompleteCommand (char *partial) {
 	cmd_function_t	*cmd;
 	int				len;
-	
+	cmdalias_t		*a; // Added for alias cmd completion
 	len = Q_strlen(partial);
-	
+
 	if (!len)
 		return NULL;
-		
+
 // check functions
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
 		if (!Q_strncmp (partial,cmd->name, len))
 			return cmd->name;
+
+//The next For loop adds alias cmd completion
+	for (a=cmd_alias ; a ; a=a->next)
+		if (!Q_strncmp (partial, a->name, len))
+			return a->name;
 
 	return NULL;
 }
@@ -612,13 +708,16 @@ FIXME: lookupnoadd the token to speed search?
 ============
 */
 void	Cmd_ExecuteString (char *text, cmd_source_t src)
-{	
+{
 	cmd_function_t	*cmd;
 	cmdalias_t		*a;
 
 	cmd_source = src;
 	Cmd_TokenizeString (text);
-			
+
+//	sprintf(gpstr, "cmdexec: %s", text);
+//	GpError(gpstr,1);
+
 // execute the command line
 	if (!Cmd_Argc())
 		return;		// no tokens
@@ -642,11 +741,11 @@ void	Cmd_ExecuteString (char *text, cmd_source_t src)
 			return;
 		}
 	}
-	
+
 // check cvars
 	if (!Cvar_Command ())
 		Con_Printf ("Unknown command \"%s\"\n", Cmd_Argv(0));
-	
+
 }
 
 
@@ -664,7 +763,7 @@ void Cmd_ForwardToServer (void)
 		Con_Printf ("Can't \"%s\", not connected\n", Cmd_Argv(0));
 		return;
 	}
-	
+
 	if (cls.demoplayback)
 		return;		// not really connected
 
@@ -693,13 +792,13 @@ where the given parameter apears, or 0 if not present
 int Cmd_CheckParm (char *parm)
 {
 	int i;
-	
+
 	if (!parm)
 		Sys_Error ("Cmd_CheckParm: NULL");
 
 	for (i = 1; i < Cmd_Argc (); i++)
 		if (! Q_strcasecmp (parm, Cmd_Argv (i)))
 			return i;
-			
+
 	return 0;
 }

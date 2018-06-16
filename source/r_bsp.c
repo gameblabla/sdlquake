@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -21,13 +21,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "r_local.h"
+#ifdef DEBUG
+#include "../LogFloat.h"
+#endif
 
 //
 // current entity info
 //
 qboolean		insubmodel;
 entity_t		*currententity;
+
 vec3_t			modelorg, base_modelorg;
+
+#ifdef USE_PQ_OPT1
+int				modelorg_fxp[3];
+#endif
+
 								// modelorg is the viewpoint reletive to
 								// the currently rendering entity
 vec3_t			r_entorigin;	// the currently rendering entity in world
@@ -35,11 +44,12 @@ vec3_t			r_entorigin;	// the currently rendering entity in world
 
 float			entity_rotation[3][3];
 
+
 vec3_t			r_worldmodelorg;
 
 int				r_currentbkey;
 
-typedef enum {touchessolid, drawnode, nodrawnode, some_dummy_enum=0x10000 } solidstate_t;
+typedef enum {touchessolid, drawnode, nodrawnode} solidstate_t;
 
 #define MAX_BMODEL_VERTS	500			// 6K
 #define MAX_BMODEL_EDGES	1000		// 12K
@@ -50,8 +60,8 @@ static int			numbverts, numbedges;
 
 static mvertex_t	*pfrontenter, *pfrontexit;
 
-static qboolean		makeclippededge;
 
+static qboolean		makeclippededge;
 
 //===========================================================================
 
@@ -86,10 +96,10 @@ void R_RotateBmodel (void)
 // TODO: share work with R_SetUpAliasTransform
 
 // yaw
-	angle = currententity->angles[YAW];		
-	angle = angle * M_PI*2 / 360;
-	s = sinf(angle);
-	c = cosf(angle);
+	angle = currententity->angles[YAW];
+	angle = angle * (float) M_PI*2 / 360;
+	s = (float)sin(angle);
+	c = (float)cos(angle);
 
 	temp1[0][0] = c;
 	temp1[0][1] = s;
@@ -103,10 +113,10 @@ void R_RotateBmodel (void)
 
 
 // pitch
-	angle = currententity->angles[PITCH];		
-	angle = angle * M_PI*2 / 360;
-	s = sinf(angle);
-	c = cosf(angle);
+	angle = currententity->angles[PITCH];
+	angle = angle * (float)M_PI*2 / 360;
+	s = (float)sin(angle);
+	c = (float)cos(angle);
 
 	temp2[0][0] = c;
 	temp2[0][1] = 0;
@@ -121,10 +131,10 @@ void R_RotateBmodel (void)
 	R_ConcatRotations (temp2, temp1, temp3);
 
 // roll
-	angle = currententity->angles[ROLL];		
-	angle = angle * M_PI*2 / 360;
-	s = sinf(angle);
-	c = cosf(angle);
+	angle = currententity->angles[ROLL];
+	angle = angle * (float)M_PI*2 / 360;
+	s = (float)sin(angle);
+	c = (float)cos(angle);
 
 	temp1[0][0] = 1;
 	temp1[0][1] = 0;
@@ -416,7 +426,6 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags)
 	mplane_t	*pplane;
 
 // FIXME: use bounding-box-based frustum clipping info?
-
 	psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
 	numsurfaces = pmodel->nummodelsurfaces;
 
@@ -439,29 +448,41 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags)
 	}
 }
 
+void VerifyFrustumIndexes(char *s) {
+	int i, ii;
+	char buf[256];
+
+	for (i=0; i<4; i++)
+		if (pfrustum_indexes[i])
+			for (ii=0; ii<4; ii++)
+				if (pfrustum_indexes[i][ii]<0) {
+					sprintf(buf, "Bad Frustum: [%d][%d]=%d\n%s", i,ii,pfrustum_indexes[i][ii],s);
+					Sys_Error(buf);
+				}
+}
+
+#ifdef USE_PQ_OPT1
+int			clipplanes_fxp[4][3];
+int			clipdist_fxp[4];
+#endif
 
 /*
 ================
 R_RecursiveWorldNode
 ================
 */
-#define RECURSIVE_WORLD_NODE_FIXED_DOTP( v1, v2 ) ( ( llmull_s0( v1[ 0 ], v2[ 0 ] ) + llmull_s0( v1[ 1 ], v2[ 1 ] ) + llmull_s0( v1[ 2 ], v2[ 2 ] ) + ( 1 << 11 ) ) >> 12 )
-#define RECURSIVE_WORLD_NODE_BSP_FIXED_DOTP( v1, v2 ) ( ( llmull_s0( v1[ 0 ], v2[ 0 ] ) + llmull_s0( v1[ 1 ], v2[ 1 ] ) + llmull_s0( v1[ 2 ], v2[ 2 ] ) + ( 1 << 27 ) ) >> 28 )
-
 void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 {
 	int			i, c, side, *pindex;
-	vec3_t		acceptpt, rejectpt;
-#if RECURSIVE_WORLD_NODE_CLIP_FIXED || !RECURSIVE_WORLD_NODE_FPLANE
-	fixed16_t   rgf16_acceptpt[ 3 ], rgf16_rejectpt[ 3 ];
-	fixed16_t   f16_d, f16_dot;
-	mfplane_t	*fplane;
-#endif
+	mplane_t	*plane;
 	msurface_t	*surf, **mark;
 	mleaf_t		*pleaf;
-#if !RECURSIVE_WORLD_NODE_FPLANE
-	float		d, dot;
-	mplane_t	*plane;
+	double		dot;
+#ifdef USE_PQ_OPT1
+	int			d_fxp;
+#else
+	double		d;
+	vec3_t		acceptpt, rejectpt;
 #endif
 
 	if (node->contents == CONTENTS_SOLID)
@@ -473,24 +494,34 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 // cull the clipping planes if not trivial accept
 // FIXME: the compiler is doing a lousy job of optimizing here; it could be
 //  twice as fast in ASM
-	if (clipflags )
+	if (clipflags)
 	{
 		for (i=0 ; i<4 ; i++)
 		{
 			if (! (clipflags & (1<<i)) )
 				continue;	// don't need to clip against it
 
-#if !RECURSIVE_WORLD_NODE_CLIP_FIXED
 		// generate accept and reject points
 		// FIXME: do with fast look-ups or integer tests based on the sign bit
 		// of the floating point values
-
 			pindex = pfrustum_indexes[i];
+#ifdef USE_PQ_OPT1
+			d_fxp=node->minmaxs[pindex[0]]*clipplanes_fxp[i][0]+node->minmaxs[pindex[1]]*clipplanes_fxp[i][1]+node->minmaxs[pindex[2]]*clipplanes_fxp[i][2];
+			d_fxp-=clipdist_fxp[i];
 
+			if (d_fxp <= 0)
+				return;
+
+			d_fxp=node->minmaxs[pindex[3]]*clipplanes_fxp[i][0]+node->minmaxs[pindex[4]]*clipplanes_fxp[i][1]+node->minmaxs[pindex[5]]*clipplanes_fxp[i][2];
+			d_fxp-=clipdist_fxp[i];
+
+			if (d_fxp >= 0)
+				clipflags &= ~(1<<i);	// node is entirely on screen
+#else
 			rejectpt[0] = (float)node->minmaxs[pindex[0]];
 			rejectpt[1] = (float)node->minmaxs[pindex[1]];
 			rejectpt[2] = (float)node->minmaxs[pindex[2]];
-			
+
 			d = DotProduct (rejectpt, view_clipplanes[i].normal);
 			d -= view_clipplanes[i].dist;
 
@@ -506,31 +537,10 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 
 			if (d >= 0)
 				clipflags &= ~(1<<i);	// node is entirely on screen
-#else
-			pindex = pfrustum_indexes[i];
-
-
-			rgf16_rejectpt[0] = node->minmaxs[pindex[0]];
-			rgf16_rejectpt[1] = node->minmaxs[pindex[1]];
-			rgf16_rejectpt[2] = node->minmaxs[pindex[2]];
-			
-			f16_d = RECURSIVE_WORLD_NODE_FIXED_DOTP( rgf16_rejectpt, view_clipplanes_fixed[i].normal ) - view_clipplanes_fixed[i].f16_dist;
-
-			if ( f16_d <= 0 )
-				return;
-
-			rgf16_acceptpt[0] = node->minmaxs[pindex[3+0]];
-			rgf16_acceptpt[1] = node->minmaxs[pindex[3+1]];
-			rgf16_acceptpt[2] = node->minmaxs[pindex[3+2]];
-
-			f16_d = RECURSIVE_WORLD_NODE_FIXED_DOTP( rgf16_acceptpt, view_clipplanes_fixed[i].normal ) - view_clipplanes_fixed[i].f16_dist;
-
-			if ( f16_d >= 0 )
-				clipflags &= ~(1<<i);
 #endif
 		}
 	}
-	
+
 // if a leaf node, draw stuff
 	if (node->contents < 0)
 	{
@@ -562,7 +572,6 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 	// node is just a decision point, so go down the apropriate sides
 
 	// find which side of the node we are on
-#if !RECURSIVE_WORLD_NODE_FPLANE
 		plane = node->plane;
 
 		switch (plane->type)
@@ -580,35 +589,11 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 			dot = DotProduct (modelorg, plane->normal) - plane->dist;
 			break;
 		}
-	
+
 		if (dot >= 0)
 			side = 0;
 		else
 			side = 1;
-#else
-		fplane = node->fplane;
-
-		switch (fplane->type)
-		{
-		case PLANE_X:
-			f16_dot = rgf16_modelorg[0] - ( fplane->dist << 4 );
-			break;
-		case PLANE_Y:
-			f16_dot = rgf16_modelorg[1] - ( fplane->dist << 4 );
-			break;
-		case PLANE_Z:
-			f16_dot = rgf16_modelorg[2] - ( fplane->dist << 4 );
-			break;
-		default:
-			f16_dot = RECURSIVE_WORLD_NODE_BSP_FIXED_DOTP( rgf16_modelorg, fplane->normal ) - fplane->dist;
-			break;
-		}
-	
-		if (f16_dot >= 0)
-			side = 0;
-		else
-			side = 1;
-#endif
 
 	// recurse down the children, front side first
 		R_RecursiveWorldNode (node->children[side], clipflags);
@@ -620,16 +605,13 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 		{
 			surf = cl.worldmodel->surfaces + node->firstsurface;
 
-#if !RECURSIVE_WORLD_NODE_FPLANE
 			if (dot < -BACKFACE_EPSILON)
-#else
-			if ( f16_dot < ( ( int ) ( -( 0.01 * ( 1 << 12 ) ) ) ) )
-#endif
 			{
 				do
 				{
 					if ((surf->flags & SURF_PLANEBACK) &&
 						(surf->visframe == r_framecount))
+
 					{
 						if (r_drawpolys)
 						{
@@ -650,23 +632,22 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 						}
 						else
 						{
+
 							R_RenderFace (surf, clipflags);
+
 						}
 					}
 
 					surf++;
 				} while (--c);
 			}
-#if !RECURSIVE_WORLD_NODE_FPLANE
 			else if (dot > BACKFACE_EPSILON)
-#else
-			else if ( f16_dot > ( ( int ) ( ( 0.01 * ( 1 << 12 ) ) ) ) )
-#endif
 			{
 				do
 				{
 					if (!(surf->flags & SURF_PLANEBACK) &&
 						(surf->visframe == r_framecount))
+
 					{
 						if (r_drawpolys)
 						{
@@ -687,7 +668,9 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 						}
 						else
 						{
+
 							R_RenderFace (surf, clipflags);
+
 						}
 					}
 
@@ -701,10 +684,9 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 
 	// recurse down the back side
 		R_RecursiveWorldNode (node->children[!side], clipflags);
+
 	}
 }
-
-
 
 /*
 ================
@@ -717,12 +699,82 @@ void R_RenderWorld (void)
 	model_t		*clmodel;
 	btofpoly_t	btofpolys[MAX_BTOFPOLYS];
 
+	GpError("A",8);
+
 	pbtofpolys = btofpolys;
 
 	currententity = &cl_entities[0];
 	VectorCopy (r_origin, modelorg);
+
+#ifdef USE_PQ_OPT1
+	modelorg_fxp[0]=(int)(r_origin[0]*524288.0);
+	modelorg_fxp[1]=(int)(r_origin[1]*524288.0);
+	modelorg_fxp[2]=(int)(r_origin[2]*524288.0);
+
+	//modelorg_fxp[0]=(int)(r_origin[0]*65536.0);
+	//modelorg_fxp[1]=(int)(r_origin[1]*65536.0);
+	//modelorg_fxp[2]=(int)(r_origin[2]*65536.0);
+
+	vright_fxp[0]=(int)(256.0/vright[0]);
+	if (!vright_fxp[0]) vright_fxp[0]=0x7fffffff;
+	vright_fxp[1]=(int)(256.0/vright[1]);
+	if (!vright_fxp[1]) vright_fxp[1]=0x7fffffff;
+	vright_fxp[2]=(int)(256.0/vright[2]);
+	if (!vright_fxp[2]) vright_fxp[2]=0x7fffffff;
+
+	vpn_fxp[0]=(int)(256.0/vpn[0]);
+	if (!vpn_fxp[0]) vpn_fxp[0]=0x7fffffff;
+	vpn_fxp[1]=(int)(256.0/vpn[1]);
+	if (!vpn_fxp[1]) vpn_fxp[1]=0x7fffffff;
+	vpn_fxp[2]=(int)(256.0/vpn[2]);
+	if (!vpn_fxp[2]) vpn_fxp[2]=0x7fffffff;
+
+	vup_fxp[0]=(int)(256.0/vup[0]);
+	if (!vup_fxp[0]) vup_fxp[0]=0x7fffffff;
+	vup_fxp[1]=(int)(256.0/vup[1]);
+	if (!vup_fxp[1]) vup_fxp[1]=0x7fffffff;
+	vup_fxp[2]=(int)(256.0/vup[2]);
+	if (!vup_fxp[2]) vup_fxp[2]=0x7fffffff;
+
+#endif
+
 	clmodel = currententity->model;
 	r_pcurrentvertbase = clmodel->vertexes;
+
+#ifdef USE_PQ_OPT2
+	r_pcurrentvertbase_fxp = clmodel->vertexes_fxp;
+#endif
+#ifdef USE_PQ_OPT1
+	//Dan Fixed point conversion stuff
+	for (i=0; i<4; i++) {
+		clipplanes_fxp[i][0]=(int)(view_clipplanes[i].normal[0]*65536.0);
+		clipplanes_fxp[i][1]=(int)(view_clipplanes[i].normal[1]*65536.0);
+		clipplanes_fxp[i][2]=(int)(view_clipplanes[i].normal[2]*65536.0);
+		clipdist_fxp[i]		=(int)(view_clipplanes[i].dist*65536.0);
+#ifdef USE_PQ_OPT2
+		view_clipplanes_fxp[i].leftedge=view_clipplanes[i].leftedge;
+		view_clipplanes_fxp[i].rightedge=view_clipplanes[i].rightedge;
+		if (!view_clipplanes[i].normal[0]) view_clipplanes_fxp[i].normal[0]=2<<29;
+		else view_clipplanes_fxp[i].normal[0]=(int)(4096.0f/view_clipplanes[i].normal[0]);
+		if (!view_clipplanes[i].normal[0]) view_clipplanes_fxp[i].normal[0]=2<<29;
+
+		if (!view_clipplanes[i].normal[1]) view_clipplanes_fxp[i].normal[1]=2<<29;
+		else view_clipplanes_fxp[i].normal[1]=(int)(4096.0f/view_clipplanes[i].normal[1]);
+		if (!view_clipplanes[i].normal[1]) view_clipplanes_fxp[i].normal[1]=2<<29;
+
+		if (!view_clipplanes[i].normal[2]) view_clipplanes_fxp[i].normal[2]=2<<29;
+		else view_clipplanes_fxp[i].normal[2]=(int)(4096.0f/view_clipplanes[i].normal[2]);
+		if (!view_clipplanes[i].normal[2]) view_clipplanes_fxp[i].normal[2]=2<<29;
+
+		view_clipplanes_fxp[i].dist=(int)(view_clipplanes[i].dist*128.0f);
+#endif
+#if defined(_X86_)&&defined(DEBUG)
+		LogFloat(view_clipplanes[i].normal[0], "view_clipplanes[i].normal[0]", i, -1);
+		LogFloat(view_clipplanes[i].normal[1], "view_clipplanes[i].normal[1]", i, -1);
+		LogFloat(view_clipplanes[i].normal[2], "view_clipplanes[i].normal[2]", i, -1);
+#endif
+	}
+#endif
 
 	R_RecursiveWorldNode (clmodel->nodes, 15);
 
@@ -735,6 +787,6 @@ void R_RenderWorld (void)
 			R_RenderPoly (btofpolys[i].psurf, btofpolys[i].clipflags);
 		}
 	}
-}
 
+}
 

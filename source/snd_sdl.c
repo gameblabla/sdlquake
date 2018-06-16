@@ -1,7 +1,6 @@
-
 #include <stdio.h>
 #include "SDL_audio.h"
-//#include "SDL_byteorder.h"
+#include "SDL_byteorder.h"
 #include "quakedef.h"
 
 static dma_t the_shm;
@@ -20,8 +19,7 @@ static void paint_audio(void *unused, Uint8 *stream, int len)
 	}
 }
 
-qboolean SNDDMA_Init(void)
-{
+qboolean SNDDMA_Init(void) {
 	SDL_AudioSpec desired, obtained;
 
 	snd_inited = 0;
@@ -43,6 +41,7 @@ qboolean SNDDMA_Init(void)
 								desired_bits);
 			return 0;
 	}
+
 	desired.channels = 2;
 	desired.samples = 512;
 	desired.callback = paint_audio;
@@ -58,16 +57,14 @@ qboolean SNDDMA_Init(void)
 		case AUDIO_U8:
 			/* Supported */
 			break;
-		case AUDIO_S16LSB:
-		case AUDIO_S16MSB:
-			if ( ((obtained.format == AUDIO_S16LSB) &&
-			     (SDL_BYTEORDER == SDL_LIL_ENDIAN)) ||
-			     ((obtained.format == AUDIO_S16MSB) &&
-			     (SDL_BYTEORDER == SDL_BIG_ENDIAN)) ) {
+		case AUDIO_S16SYS:
 				/* Supported */
+			break;
+		/* case AUDIO_S16LSB:
+		case AUDIO_S16MSB:
+			if ( ((obtained.format == AUDIO_S16LSB) && (SDL_BYTEORDER == SDL_LIL_ENDIAN)) || ((obtained.format == AUDIO_S16MSB) && (SDL_BYTEORDER == SDL_BIG_ENDIAN)) ) {
 				break;
-			}
-			/* Unsupported, fall through */;
+			} */
 		default:
 			/* Not supported -- force SDL to do our bidding */
 			SDL_CloseAudio();
@@ -109,6 +106,4 @@ void SNDDMA_Shutdown(void)
 		snd_inited = 0;
 	}
 }
-void SNDDMA_Submit(void)
-{
-}
+

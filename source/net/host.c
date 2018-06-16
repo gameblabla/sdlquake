@@ -907,7 +907,8 @@ void Host_Init (quakeparms_t *parms)
 
 	}
 
-	Cbuf_InsertText ("exec quake.rc\n");
+	Cbuf_InsertText ("exec config.cfg\n");
+	Cbuf_InsertText ("startdemos demo1 demo2 demo3\n");
 
 	Hunk_AllocName (0, "-HOST_HUNKLEVEL-");
 	host_hunklevel = Hunk_LowMark ();

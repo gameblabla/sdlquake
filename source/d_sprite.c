@@ -213,14 +213,14 @@ void D_SpriteScanLeftEdge (void)
 	if (lmaxindex == 0)
 		lmaxindex = r_spritedesc.nump;
 
-	vtop = ceilf (r_spritedesc.pverts[i].v);
+	vtop = (float)ceil (r_spritedesc.pverts[i].v);
 
 	do
 	{
 		pvert = &r_spritedesc.pverts[i];
 		pnext = pvert - 1;
 
-		vbottom = ceilf (pnext->v);
+		vbottom = (float)ceil (pnext->v);
 
 		if (vtop < vbottom)
 		{
@@ -252,7 +252,6 @@ void D_SpriteScanLeftEdge (void)
 	} while (i != lmaxindex);
 }
 
-
 /*
 =====================
 D_SpriteScanRightEdge
@@ -275,7 +274,7 @@ void D_SpriteScanRightEdge (void)
 	if (vvert > r_refdef.fvrectbottom_adj)
 		vvert = r_refdef.fvrectbottom_adj;
 
-	vtop = ceilf (vvert);
+	vtop = (float)ceil (vvert);
 
 	do
 	{
@@ -288,7 +287,7 @@ void D_SpriteScanRightEdge (void)
 		if (vnext > r_refdef.fvrectbottom_adj)
 			vnext = r_refdef.fvrectbottom_adj;
 
-		vbottom = ceilf (vnext);
+		vbottom = (float)ceil (vnext);
 
 		if (vtop < vbottom)
 		{
@@ -334,7 +333,6 @@ void D_SpriteScanRightEdge (void)
 	pspan->count = DS_SPAN_LIST_END;	// mark the end of the span list 
 }
 
-
 /*
 =====================
 D_SpriteCalculateGradients
@@ -350,7 +348,7 @@ void D_SpriteCalculateGradients (void)
 	TransformVector (r_spritedesc.vup, p_taxis);
 	VectorInverse (p_taxis);
 
-	distinv = 1.0 / (-DotProduct (modelorg, r_spritedesc.vpn));
+	distinv = (float)(1.0 / (-DotProduct (modelorg, r_spritedesc.vpn)));
 
 	d_sdivzstepu = p_saxis[0] * xscaleinv;
 	d_tdivzstepu = p_taxis[0] * xscaleinv;
@@ -380,7 +378,6 @@ void D_SpriteCalculateGradients (void)
 	bbextentt = (sprite_height << 16) - 1;
 }
 
-
 /*
 =====================
 D_DrawSprite
@@ -397,8 +394,8 @@ void D_DrawSprite (void)
 
 // find the top and bottom vertices, and make sure there's at least one scan to
 // draw
-	ymin = 999999.9;
-	ymax = -999999.9;
+	ymin = (float)999999.9;
+	ymax = (float)-999999.9;
 	pverts = r_spritedesc.pverts;
 
 	for (i=0 ; i<r_spritedesc.nump ; i++)
@@ -418,8 +415,8 @@ void D_DrawSprite (void)
 		pverts++;
 	}
 
-	ymin = ceilf (ymin);
-	ymax = ceilf (ymax);
+	ymin = (float)ceil (ymin);
+	ymax = (float)ceil (ymax);
 
 	if (ymin >= ymax)
 		return;		// doesn't cross any scans at all
@@ -439,4 +436,3 @@ void D_DrawSprite (void)
 	D_SpriteScanRightEdge ();
 	D_SpriteDrawSpans (sprite_spans);
 }
-

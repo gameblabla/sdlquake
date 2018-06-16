@@ -68,8 +68,8 @@ realcheck:
 	start[2] = mins[2];
 	
 // the midpoint must be within 16 of the bottom
-	start[0] = stop[0] = (mins[0] + maxs[0])*0.5;
-	start[1] = stop[1] = (mins[1] + maxs[1])*0.5;
+	start[0] = stop[0] = (float)((mins[0] + maxs[0])*0.5);
+	start[1] = stop[1] = (float)((mins[1] + maxs[1])*0.5);
 	stop[2] = start[2] - 2*STEPSIZE;
 	trace = SV_Move (start, vec3_origin, vec3_origin, stop, true, ent);
 
@@ -95,7 +95,6 @@ realcheck:
 	c_yes++;
 	return true;
 }
-
 
 /*
 =============
@@ -180,7 +179,7 @@ qboolean SV_movestep (edict_t *ent, vec3_t move, qboolean relink)
 			VectorAdd (ent->v.origin, move, ent->v.origin);
 			if (relink)
 				SV_LinkEdict (ent, true);
-			ent->v.flags = (int)ent->v.flags & ~FL_ONGROUND;
+			ent->v.flags = (float)((int)ent->v.flags & ~FL_ONGROUND);
 //	Con_Printf ("fall down\n"); 
 			return true;
 		}
@@ -207,7 +206,7 @@ qboolean SV_movestep (edict_t *ent, vec3_t move, qboolean relink)
 	if ( (int)ent->v.flags & FL_PARTIALGROUND )
 	{
 //		Con_Printf ("back on ground\n"); 
-		ent->v.flags = (int)ent->v.flags & ~FL_PARTIALGROUND;
+		ent->v.flags = (float)((int)ent->v.flags & ~FL_PARTIALGROUND);
 	}
 	ent->v.groundentity = EDICT_TO_PROG(trace.ent);
 
@@ -216,9 +215,6 @@ qboolean SV_movestep (edict_t *ent, vec3_t move, qboolean relink)
 		SV_LinkEdict (ent, true);
 	return true;
 }
-
-
-//============================================================================
 
 /*
 ======================
@@ -238,9 +234,9 @@ qboolean SV_StepDirection (edict_t *ent, float yaw, float dist)
 	ent->v.ideal_yaw = yaw;
 	PF_changeyaw();
 	
-	yaw = yaw*M_PI*2 / 360;
-	move[0] = cos(yaw)*dist;
-	move[1] = sin(yaw)*dist;
+	yaw = (float)(yaw*M_PI*2 / 360);
+	move[0] = (float)(cos(yaw)*dist);
+	move[1] = (float)(sin(yaw)*dist);
 	move[2] = 0;
 
 	VectorCopy (ent->v.origin, oldorigin);
@@ -269,10 +265,8 @@ void SV_FixCheckBottom (edict_t *ent)
 {
 //	Con_Printf ("SV_FixCheckBottom\n");
 	
-	ent->v.flags = (int)ent->v.flags | FL_PARTIALGROUND;
+	ent->v.flags = (float)((int)ent->v.flags | FL_PARTIALGROUND);
 }
-
-
 
 /*
 ================
@@ -287,7 +281,7 @@ void SV_NewChaseDir (edict_t *actor, edict_t *enemy, float dist)
 	float			d[3];
 	float		tdir, olddir, turnaround;
 
-	olddir = anglemod( (int)(actor->v.ideal_yaw/45)*45 );
+	olddir = anglemod( (float)((int)(actor->v.ideal_yaw/45)*45) );
 	turnaround = anglemod(olddir - 180);
 
 	deltax = enemy->v.origin[0] - actor->v.origin[0];
@@ -309,16 +303,16 @@ void SV_NewChaseDir (edict_t *actor, edict_t *enemy, float dist)
 	if (d[1] != DI_NODIR && d[2] != DI_NODIR)
 	{
 		if (d[1] == 0)
-			tdir = d[2] == 90 ? 45 : 315;
+			tdir = (float)(d[2] == 90 ? 45 : 315);
 		else
-			tdir = d[2] == 90 ? 135 : 215;
+			tdir = (float)(d[2] == 90 ? 135 : 215);
 			
 		if (tdir != turnaround && SV_StepDirection(actor, tdir, dist))
 			return;
 	}
 
 // try other directions
-	if ( ((rand()&3) & 1) ||  abs(deltay)>abs(deltax))
+	if ( ((rand()&3) & 1) ||  abs((int)deltay)>abs((int)deltax))
 	{
 		tdir=d[1];
 		d[1]=d[2];
@@ -424,4 +418,3 @@ void SV_MoveToGoal (void)
 		SV_NewChaseDir (ent, goal, dist);
 	}
 }
-

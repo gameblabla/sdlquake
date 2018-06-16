@@ -42,9 +42,9 @@ void D_Sky_uv_To_st (int u, int v, fixed16_t *s, fixed16_t *t)
 	else
 		temp = (float)r_refdef.vrect.height;
 
-	wu = 8192.0f * (float)(u-((int)vid.width>>1)) / temp;
-	wv = 8192.0f * (float)(((int)vid.height>>1)-v) / temp;
-	
+	wu = (float)(8192.0 * (float)(u-((int)vid.width>>1)) / temp);
+	wv = (float)(8192.0 * (float)(((int)vid.height>>1)-v) / temp);
+
 	end[0] = 4096*vpn[0] + wu*vright[0] + wv*vup[0];
 	end[1] = 4096*vpn[1] + wu*vright[1] + wv*vup[1];
 	end[2] = 4096*vpn[2] + wu*vright[2] + wv*vup[2];
@@ -56,12 +56,12 @@ void D_Sky_uv_To_st (int u, int v, fixed16_t *s, fixed16_t *t)
 	*t = (int)((temp + 6*(SKYSIZE/2-1)*end[1]) * 0x10000);
 }
 
-
 /*
 =================
 D_DrawSkyScans8
 =================
 */
+#ifndef USE_PQ_OPT
 void D_DrawSkyScans8 (espan_t *pspan)
 {
 	int				count, spancount, u, v;
@@ -71,8 +71,6 @@ void D_DrawSkyScans8 (espan_t *pspan)
 
 	sstep = 0;	// keep compiler happy
 	tstep = 0;	// ditto
-	snext = 0;
-	tnext = 0;
 
 	do
 	{
@@ -110,7 +108,8 @@ void D_DrawSkyScans8 (espan_t *pspan)
 			{
 			// calculate s and t at last pixel in span,
 			// calculate s and t steps across span by division
-				spancountminus1 = (float)(spancount - 1);
+				//Dan: I don't know why they were casting this to a float?? I removed the cast.
+				spancountminus1 = /*(float)*/(spancount - 1);
 
 				if (spancountminus1 > 0)
 				{
@@ -137,4 +136,46 @@ void D_DrawSkyScans8 (espan_t *pspan)
 
 	} while ((pspan = pspan->pnext) != NULL);
 }
-
+#else
+//JB: Optimization
+//Dan East: Will result in sky image distortion (although possibly not noticeable).
+void D_DrawSkyScans8 (espan_t *pspan)
+{
+	int				count, spancount, u, v;
+	unsigned char	*pdest;
+	fixed16_t		s, t, snext, tnext, sstep, tstep;
+	int				spancountminus1;
+	sstep = 0;	// keep compiler happy
+	tstep = 0;	// ditto
+	do
+	{
+		pdest = (unsigned char *)((byte *)d_viewbuffer + (screenwidth * pspan->v) + pspan->u);
+		count = pspan->count;
+		// calculate the initial s & t
+		u = pspan->u;
+		v = pspan->v;
+		D_Sky_uv_To_st (u, v, &s, &t);
+		spancount = count;
+		count -= spancount;
+		// calculate s and t at last pixel in span,
+		// calculate s and t steps across span by division
+		spancountminus1 = /*(float)*/(spancount - 1);
+		if (spancountminus1 > 0)
+		{
+			u += spancountminus1;
+			D_Sky_uv_To_st (u, v, &snext, &tnext);
+			sstep = (snext - s) / spancountminus1;
+			tstep = (tnext - t) / spancountminus1;
+		}
+		do
+		{
+			*pdest++ = r_skysource[((t & R_SKY_TMASK) >> 8) +
+					((s & R_SKY_SMASK) >> 16)];
+			s += sstep;
+			t += tstep;
+		} while (--spancount > 0);
+		s = snext;
+		t = tnext;
+	} while ((pspan = pspan->pnext) != NULL);
+}
+#endif

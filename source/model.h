@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -49,6 +49,16 @@ typedef struct
 	vec3_t		position;
 } mvertex_t;
 
+typedef struct
+{
+	int		position[3];
+} mvertex_fxp_t;
+/*
+typedef struct
+{
+	vec3_FPM_t		position;
+} mvertex_FPM_t;
+*/
 #define	SIDE_FRONT	0
 #define	SIDE_BACK	1
 #define	SIDE_ON		2
@@ -65,16 +75,17 @@ typedef struct mplane_s
 	byte	pad[2];
 } mplane_t;
 
-typedef struct mfplane_s
+//Dan East: Fixed Point Math addition
+/*
+typedef struct mplane_FPM_s
 {
-	fixed16_t normal[ 3 ];
-	fixed16_t dist;
+	vec3_FPM_t	normal;
+	fixedpoint_t	dist;
 	byte	type;			// for texture axis selection and fast side tests
 	byte	signbits;		// signx + signy<<1 + signz<<1
 	byte	pad[2];
-} mfplane_t;
-
-
+} mplane_FPM_t;
+*/
 
 typedef struct texture_s
 {
@@ -104,12 +115,25 @@ typedef struct
 
 typedef struct
 {
+#ifndef USE_PQ_OPT3
 	float		vecs[2][4];
 	float		mipadjust;
+#else
+	int			vecs_fxp[2][4];
+	int			mipadjust_fxp;
+#endif
 	texture_t	*texture;
 	int			flags;
 } mtexinfo_t;
-
+/*
+typedef struct
+{
+	fixedpoint_t	vecs[2][4];
+	fixedpoint_t	mipadjust;
+	texture_t	*texture;
+	int			flags;
+} mtexinfo_FPM_t;
+*/
 typedef struct msurface_s
 {
 	int			visframe;		// should be drawn when node is crossed
@@ -118,12 +142,11 @@ typedef struct msurface_s
 	int			dlightbits;
 
 	mplane_t	*plane;
-	mfplane_t	*fplane;
 	int			flags;
 
 	int			firstedge;	// look up in model->surfedges[], negative numbers
 	int			numedges;	// are backwards edges
-	
+
 // surface generation data
 	struct surfcache_s	*cachespots[MIPLEVELS];
 
@@ -131,31 +154,74 @@ typedef struct msurface_s
 	short		extents[2];
 
 	mtexinfo_t	*texinfo;
-	
+
 // lighting info
 	byte		styles[MAXLIGHTMAPS];
 	byte		*samples;		// [numstyles*surfsize]
 } msurface_t;
+/*
+typedef struct msurface_FPM_s
+{
+	int			visframe;		// should be drawn when node is crossed
 
+	int			dlightframe;
+	int			dlightbits;
+
+	mplane_FPM_t	*plane;
+	int			flags;
+
+	int			firstedge;	// look up in model->surfedges[], negative numbers
+	int			numedges;	// are backwards edges
+
+// surface generation data
+	struct surfcache_FPM_s	*cachespots[MIPLEVELS];
+
+	short		texturemins[2];
+	short		extents[2];
+
+	mtexinfo_FPM_t	*texinfo;
+
+// lighting info
+	byte		styles[MAXLIGHTMAPS];
+	byte		*samples;		// [numstyles*surfsize]
+} msurface_FPM_t;
+*/
 typedef struct mnode_s
 {
 // common with leaf
 	int			contents;		// 0, to differentiate from leafs
 	int			visframe;		// node needs to be traversed if current
-	
+
 	short		minmaxs[6];		// for bounding box culling
 
 	struct mnode_s	*parent;
 
 // node specific
 	mplane_t	*plane;
-	mfplane_t	*fplane;
-	struct mnode_s	*children[2];	
+	struct mnode_s	*children[2];
 
 	unsigned short		firstsurface;
 	unsigned short		numsurfaces;
 } mnode_t;
+/*
+typedef struct mnode_FPM_s
+{
+// common with leaf
+	int			contents;		// 0, to differentiate from leafs
+	int			visframe;		// node needs to be traversed if current
 
+	short		minmaxs[6];		// for bounding box culling
+
+	struct mnode_FPM_s	*parent;
+
+// node specific
+	mplane_FPM_t	*plane;
+	struct mnode_FPM_s	*children[2];
+
+	unsigned short		firstsurface;
+	unsigned short		numsurfaces;
+} mnode_FPM_t;
+*/
 
 
 typedef struct mleaf_s
@@ -177,7 +243,27 @@ typedef struct mleaf_s
 	int			key;			// BSP sequence number for leaf's contents
 	byte		ambient_sound_level[NUM_AMBIENTS];
 } mleaf_t;
+/*
+typedef struct mleaf_FPM_s
+{
+// common with node
+	int			contents;		// wil be a negative contents number
+	int			visframe;		// node needs to be traversed if current
 
+	short		minmaxs[6];		// for bounding box culling
+
+	struct mnode_s	*parent;
+
+// leaf specific
+	byte		*compressed_vis;
+	efrag_FPM_t	*efrags;
+
+	msurface_FPM_t	**firstmarksurface;
+	int			nummarksurfaces;
+	int			key;			// BSP sequence number for leaf's contents
+	byte		ambient_sound_level[NUM_AMBIENTS];
+} mleaf_FPM_t;
+*/
 // !!! if this is changed, it must be changed in asm_i386.h too !!!
 typedef struct
 {
@@ -188,7 +274,17 @@ typedef struct
 	vec3_t		clip_mins;
 	vec3_t		clip_maxs;
 } hull_t;
-
+/*
+typedef struct
+{
+	dclipnode_t		*clipnodes;
+	mplane_FPM_t	*planes;
+	int				firstclipnode;
+	int				lastclipnode;
+	vec3_FPM_t		clip_mins;
+	vec3_FPM_t		clip_maxs;
+} hull_FPM_t;
+*/
 /*
 ==============================================================================
 
@@ -207,20 +303,42 @@ typedef struct mspriteframe_s
 	float	up, down, left, right;
 	byte	pixels[4];
 } mspriteframe_t;
-
+/*
+typedef struct mspriteframe_FPM_s
+{
+	int				width;
+	int				height;
+	void			*pcachespot;			// remove?
+	fixedpoint_t	up, down, left, right;
+	byte			pixels[4];
+} mspriteframe_FPM_t;
+*/
 typedef struct
 {
 	int				numframes;
 	float			*intervals;
 	mspriteframe_t	*frames[1];
 } mspritegroup_t;
-
+/*
+typedef struct
+{
+	int					numframes;
+	fixedpoint_t		*intervals;
+	mspriteframe_FPM_t	*frames[1];
+} mspritegroup_FPM_t;
+*/
 typedef struct
 {
 	spriteframetype_t	type;
 	mspriteframe_t		*frameptr;
 } mspriteframedesc_t;
-
+/*
+typedef struct
+{
+	spriteframetype_t	type;
+	mspriteframe_FPM_t	*frameptr;
+} mspriteframedesc_FPM_t;
+*/
 typedef struct
 {
 	int					type;
@@ -231,7 +349,18 @@ typedef struct
 	void				*cachespot;		// remove?
 	mspriteframedesc_t	frames[1];
 } msprite_t;
-
+/*
+typedef struct
+{
+	int						type;
+	int						maxwidth;
+	int						maxheight;
+	int						numframes;
+	fixedpoint_t			beamlength;		// remove?
+	void					*cachespot;		// remove?
+	mspriteframedesc_FPM_t	frames[1];
+} msprite_FPM_t;
+*/
 
 /*
 ==============================================================================
@@ -299,7 +428,7 @@ typedef struct {
 // Whole model
 //
 
-typedef enum {mod_brush, mod_sprite, mod_alias, mod_dummy=0x10000} modtype_t;
+typedef enum {mod_brush, mod_sprite, mod_alias} modtype_t;
 
 #define	EF_ROCKET	1			// leave a trail
 #define	EF_GRENADE	2			// leave a trail
@@ -318,12 +447,12 @@ typedef struct model_s
 	modtype_t	type;
 	int			numframes;
 	synctype_t	synctype;
-	
+
 	int			flags;
 
 //
 // volume occupied by the model
-//		
+//
 	vec3_t		mins, maxs;
 	float		radius;
 
@@ -337,13 +466,16 @@ typedef struct model_s
 
 	int			numplanes;
 	mplane_t	*planes;
-	mfplane_t	*fplanes;
 
 	int			numleafs;		// number of visible leafs, not counting 0
 	mleaf_t		*leafs;
 
 	int			numvertexes;
 	mvertex_t	*vertexes;
+
+#ifdef USE_PQ_OPT2
+	mvertex_fxp_t	*vertexes_fxp;
+#endif
 
 	int			numedges;
 	medge_t		*edges;
@@ -381,16 +513,93 @@ typedef struct model_s
 	cache_user_t	cache;		// only access through Mod_Extradata
 
 } model_t;
+/*
+typedef struct model_FPM_s
+{
+	char		name[MAX_QPATH];
+	qboolean	needload;		// bmodels and sprites don't cache normally
 
+	modtype_t	type;
+	int			numframes;
+	synctype_t	synctype;
+
+	int			flags;
+
+//
+// volume occupied by the model
+//
+	vec3_FPM_t	mins, maxs;
+	fixedpoint_t	radius;
+
+//
+// brush model
+//
+	int			firstmodelsurface, nummodelsurfaces;
+
+	int			numsubmodels;
+	dmodel_FPM_t	*submodels;
+
+	int			numplanes;
+	mplane_FPM_t	*planes;
+
+	int			numleafs;		// number of visible leafs, not counting 0
+	mleaf_FPM_t		*leafs;
+
+	int			numvertexes;
+	mvertex_FPM_t	*vertexes;
+
+	int			numedges;
+	medge_t		*edges;
+
+	int			numnodes;
+	mnode_FPM_t	*nodes;
+
+	int			numtexinfo;
+	mtexinfo_FPM_t	*texinfo;
+
+	int			numsurfaces;
+	msurface_FPM_t	*surfaces;
+
+	int			numsurfedges;
+	int			*surfedges;
+
+	int			numclipnodes;
+	dclipnode_t	*clipnodes;
+
+	int			nummarksurfaces;
+	msurface_FPM_t	**marksurfaces;
+
+	hull_FPM_t	hulls[MAX_MAP_HULLS];
+
+	int			numtextures;
+	texture_t	**textures;
+
+	byte		*visdata;
+	byte		*lightdata;
+	char		*entities;
+
+//
+// additional model data
+//
+	cache_user_t	cache;		// only access through Mod_Extradata
+
+} model_FPM_t;
+*/
 //============================================================================
 
-void	Mod_Init (void);
-void	Mod_ClearAll (void);
-model_t *Mod_ForName (char *name, qboolean crash);
-void	*Mod_Extradata (model_t *mod);	// handles caching
-void	Mod_TouchModel (char *name);
+void		Mod_Init (void);
+void		Mod_ClearAll (void);
+//void		Mod_ClearAllFPM (void);
+model_t		*Mod_ForName (char *name, qboolean crash);
+//model_FPM_t *Mod_ForNameFPM (char *name, qboolean crash);
+void		*Mod_Extradata (model_t *mod);	// handles caching
+//void		*Mod_ExtradataFPM (model_FPM_t *mod);	// handles caching
+void		Mod_TouchModel (char *name);
+void		Mod_TouchModelFPM (char *name);
 
-mleaf_t *Mod_PointInLeaf (float *p, model_t *model);
-byte	*Mod_LeafPVS (mleaf_t *leaf, model_t *model);
+mleaf_t		*Mod_PointInLeaf (float *p, model_t *model);
+//mleaf_FPM_t	*Mod_PointInLeafFPM (fixedpoint_t *p, model_FPM_t *model);
+byte		*Mod_LeafPVS (mleaf_t *leaf, model_t *model);
+//byte		*Mod_LeafPVSFPM (mleaf_FPM_t *leaf, model_FPM_t *model);
 
 #endif	// __MODEL__

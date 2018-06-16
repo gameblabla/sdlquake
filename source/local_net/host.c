@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // host.c -- coordinates spawning and killing of local servers
 
 #include "quakedef.h"
-
+#include "r_local.h"
 
 /*
 
@@ -46,8 +46,9 @@ int			host_framecount;
 int			host_hunklevel;
 
 int			minimum_memory;
+int                     fps_count;// 2001-11-31 FPS display by QuakeForge/Muff
 
-client_t	*host_client;			// current client
+client_t		*host_client;			// current client
 
 jmp_buf 	host_abortserver;
 
@@ -209,7 +210,7 @@ Host_InitLocal
 void Host_InitLocal (void)
 {
 	Host_InitCommands ();
-	
+
 	Cvar_RegisterVariable (&host_framerate);
 	Cvar_RegisterVariable (&host_speeds);
 
@@ -243,8 +244,7 @@ Host_WriteConfiguration
 Writes key bindings and archived cvars to config.cfg
 ===============
 */
-void Host_WriteConfiguration (void)
-{
+void Host_WriteConfiguration (void) {
 	FILE	*f;
 
 // dedicated servers initialize the host but don't parse and set the
@@ -461,10 +461,9 @@ void Host_ShutdownServer(qboolean crash)
 //
 // clear structures
 //
-	memset (&sv, 0, sizeof(sv));
-	memset (svs.clients, 0, svs.maxclientslimit*sizeof(client_t));
+	Q_memset (&sv, 0, sizeof(sv));
+	Q_memset (svs.clients, 0, svs.maxclientslimit*sizeof(client_t));
 }
-
 
 /*
 ================
@@ -483,8 +482,8 @@ void Host_ClearMemory (void)
 		Hunk_FreeToLowMark (host_hunklevel);
 
 	cls.signon = 0;
-	memset (&sv, 0, sizeof(sv));
-	memset (&cl, 0, sizeof(cl));
+	Q_memset (&sv, 0, sizeof(sv));
+	Q_memset (&cl, 0, sizeof(cl));
 }
 
 
@@ -550,7 +549,6 @@ Host_ServerFrame
 ==================
 */
 #ifdef FPS_20
-
 void _Host_ServerFrame (void)
 {
 // run the world state	
@@ -600,7 +598,7 @@ void Host_ServerFrame (void)
 void Host_ServerFrame (void)
 {
 // run the world state	
-	pr_global_struct->frametime = host_frametime;
+	pr_global_struct->frametime = (float)host_frametime;
 
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
@@ -696,7 +694,6 @@ void _Host_Frame (float time)
 // update video
 	if (host_speeds.value)
 		time1 = Sys_FloatTime ();
-		
 	SCR_UpdateScreen ();
 
 	if (host_speeds.value)
@@ -715,15 +712,16 @@ void _Host_Frame (float time)
 
 	if (host_speeds.value)
 	{
-		pass1 = (time1 - time3)*1000;
+		pass1 = (int)((time1 - time3)*1000);
 		time3 = Sys_FloatTime ();
-		pass2 = (time2 - time1)*1000;
-		pass3 = (time3 - time2)*1000;
+		pass2 = (int)((time2 - time1)*1000);
+		pass3 = (int)((time3 - time2)*1000);
 		Con_Printf ("%3i tot %3i server %3i gfx %3i snd\n",
 					pass1+pass2+pass3, pass1, pass2, pass3);
 	}
 	
 	host_framecount++;
+	fps_count++;
 }
 
 void Host_Frame (float time)
@@ -749,7 +747,7 @@ void Host_Frame (float time)
 	if (timecount < 1000)
 		return;
 
-	m = timetotal*1000/timecount;
+	m = (int)(timetotal*1000/timecount);
 	timecount = 0;
 	timetotal = 0;
 	c = 0;
@@ -823,6 +821,7 @@ void Host_InitVCR (quakeparms_t *parms)
 			Sys_FileWrite(vcrFile, &len, sizeof(int));
 			Sys_FileWrite(vcrFile, com_argv[i], len);
 		}
+		sync();
 	}
 	
 }
@@ -832,9 +831,7 @@ void Host_InitVCR (quakeparms_t *parms)
 Host_Init
 ====================
 */
-void Host_Init (quakeparms_t *parms)
-{
-
+void Host_Init (quakeparms_t *parms) {
 	if (standard_quake)
 		minimum_memory = MINIMUM_MEMORY;
 	else
@@ -859,23 +856,25 @@ void Host_Init (quakeparms_t *parms)
 	Host_InitVCR (parms);
 	COM_Init (parms->basedir);
 	Host_InitLocal ();
+
 	W_LoadWadFile ("gfx.wad");
+
 	Key_Init ();
-	Con_Init ();	
-	M_Init ();	
+	Con_Init ();
+	M_Init ();
 	PR_Init ();
 	Mod_Init ();
-	//angelo get interfaces and addresses of interfaces
+	puts("about to net init-");
 	NET_Init ();
+	puts("net init done");
 	SV_Init ();
 
 	Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
 	Con_Printf ("%4.1f megabyte heap\n",parms->memsize/ (1024*1024.0));
-	
+
 	R_InitTextures ();		// needed even for dedicated servers
- 
-	if (cls.state != ca_dedicated)
-	{
+
+	if (cls.state != ca_dedicated) {
 		host_basepal = (byte *)COM_LoadHunkFile ("gfx/palette.lmp");
 		if (!host_basepal)
 			Sys_Error ("Couldn't load gfx/palette.lmp");
@@ -883,35 +882,46 @@ void Host_Init (quakeparms_t *parms)
 		if (!host_colormap)
 			Sys_Error ("Couldn't load gfx/colormap.lmp");
 
-
+#ifndef _WIN32 // on non win32, mouse comes before video for security reasons
 		IN_Init ();
+#endif
 
 		VID_Init (host_basepal);
+		COM_InitFilesystem (); // Addon load by R2-Tec
 
+		//Dan
 		Draw_Init ();
 		SCR_Init ();
-		R_Init ();
-
+		R_Init();
+	
+#ifndef	_WIN32
 	// on Win32, sound initialization has to come before video initialization, so we
 	// can put up a popup if the sound hardware is in use
 		S_Init ();
+#else
 
+#ifdef	GLQUAKE
 	// FIXME: doesn't use the new one-window approach yet
-		//S_Init ();
+		S_Init ();
+#endif
 
+#endif	// _WIN32
 		CDAudio_Init ();
 		Sbar_Init ();
 		CL_Init ();
-
+#ifdef _WIN32 // on non win32, mouse comes before video for security reasons
+		IN_Init ();
+#endif
 	}
 
-	Cbuf_InsertText ("exec quake.rc\n");
+	Cbuf_InsertText ("exec config.cfg\n");
+	Cbuf_InsertText ("startdemos demo1 demo2 demo3\n");
 
 	Hunk_AllocName (0, "-HOST_HUNKLEVEL-");
 	host_hunklevel = Hunk_LowMark ();
 
 	host_initialized = true;
-	
+
 	Sys_Printf ("========Quake Initialized=========\n");	
 }
 

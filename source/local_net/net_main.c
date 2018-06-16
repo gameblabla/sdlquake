@@ -111,6 +111,7 @@ qsocket_t *NET_NewQSocket (void)
 {
 	qsocket_t	*sock;
 
+	GpError("NET_NewQSocket",0);
 
 	if (net_freeSockets == NULL){
 		return NULL;
@@ -153,6 +154,7 @@ void NET_FreeQSocket(qsocket_t *sock)
 {
 	qsocket_t	*s;
 
+	GpError("NET_FreeQSocket",0);
 
 	// remove it from active list
 	if (sock == net_activeSockets)
@@ -376,6 +378,7 @@ qsocket_t *NET_Connect (char *host)
 	int				n;
 	int				numdrivers = net_numdrivers;
 
+	GpError("NET_Connect",0);
 
 	SetNetTime();
 
@@ -465,6 +468,7 @@ qsocket_t *NET_CheckNewConnections (void)
 {
 	qsocket_t	*ret;
 
+	GpError("NET_CheckNewConnections",0);
 
 	SetNetTime();
 
@@ -549,13 +553,16 @@ int	NET_GetMessage (qsocket_t *sock)
 {
 	int ret;
 
+	GpError("NET_GetMessage",0);
 
 	if (!sock){
+		GpError("NET_GetMessage fail",2);
 		return -1;
 	}
 
 	if (sock->disconnected)
 	{
+		GpError("NET_GetMessage discon",2);
 		Con_Printf("NET_GetMessage: disconnected socket\n");
 		return -1;
 	}
@@ -569,6 +576,7 @@ int	NET_GetMessage (qsocket_t *sock)
 	{
 		if (net_time - sock->lastMessageTime > net_messagetimeout.value)
 		{
+			GpError("NET_GetMessage timeout",2);
 			NET_Close(sock);
 			return -1;
 		}
@@ -636,13 +644,16 @@ int NET_SendMessage (qsocket_t *sock, sizebuf_t *data)
 {
 	int		r;
 
+	GpError("NET_SendMessage",0);
 
 	if (!sock){
+		GpError("NET_SendMessage - fail",0);
 		return -1;
 	}
 
 	if (sock->disconnected)
 	{
+		GpError("NET_SendMessage - disconnected socket",0);
 		Con_Printf("NET_SendMessage: disconnected socket\n");
 		return -1;
 	}
@@ -672,12 +683,16 @@ int NET_SendUnreliableMessage (qsocket_t *sock, sizebuf_t *data)
 {
 	int		r;
 
+	GpError("NET_SendUnreliableMessage",2);
 	if (!sock){
+		GpError("NET_SRM : !sock",2);
 		return -1;
 	}
 
 	if (sock->disconnected)
 	{
+
+		GpError("NET_SRM : sock->disconnected",2);
 
 		Con_Printf("NET_SendMessage: disconnected socket\n");
 		return -1;

@@ -204,7 +204,7 @@ void SV_SendServerinfo (client_t *client)
 	else
 		MSG_WriteByte (&client->message, GAME_COOP);
 
-	sprintf (message, pr_strings+sv.edicts->v.message);
+	//sprintf (message, PR_GetString(sv.edicts->v.message));//pr_strings+sv.edicts->v.message);
 
 	MSG_WriteString (&client->message,message);
 
@@ -441,17 +441,14 @@ void SV_WriteEntitiesToClient (edict_t	*clent, sizebuf_t *msg)
 	ent = NEXT_EDICT(sv.edicts);
 	for (e=1 ; e<sv.num_edicts ; e++, ent = NEXT_EDICT(ent))
 	{
-#ifdef QUAKE2
-		// don't send if flagged for NODRAW and there are no lighting effects
-		if (ent->v.effects == EF_NODRAW)
-			continue;
-#endif
+
 
 // ignore if not touching a PV leaf
 		if (ent != clent)	// clent is ALLWAYS sent
 		{
 // ignore ents without visible models
-			if (!ent->v.modelindex || !pr_strings[ent->v.model])
+			//if (!ent->v.modelindex || !pr_strings[ent->v.model])
+			if (!ent->v.modelindex || !PR_GetString(ent->v.model))
 				continue;
 
 			for (i=0 ; i < ent->num_leafs ; i++)
@@ -579,9 +576,7 @@ void SV_WriteClientdataToMessage (edict_t *ent, sizebuf_t *msg)
 	int		i;
 	edict_t	*other;
 	int		items;
-#ifndef QUAKE2
 	eval_t	*val;
-#endif
 
 //
 // send a damage message
@@ -623,16 +618,14 @@ void SV_WriteClientdataToMessage (edict_t *ent, sizebuf_t *msg)
 
 // stuff the sigil bits into the high bits of items for sbar, or else
 // mix in items2
-#ifdef QUAKE2
-	items = (int)ent->v.items | ((int)ent->v.items2 << 23);
-#else
+
 	val = GetEdictFieldValue(ent, "items2");
 
 	if (val)
 		items = (int)ent->v.items | ((int)val->_float << 23);
 	else
 		items = (int)ent->v.items | ((int)pr_global_struct->serverflags << 28);
-#endif
+
 
 	bits |= SU_ITEMS;
 	
@@ -686,7 +679,8 @@ void SV_WriteClientdataToMessage (edict_t *ent, sizebuf_t *msg)
 	if (bits & SU_ARMOR)
 		MSG_WriteByte (msg, ent->v.armorvalue);
 	if (bits & SU_WEAPON)
-		MSG_WriteByte (msg, SV_ModelIndex(pr_strings+ent->v.weaponmodel));
+		//MSG_WriteByte (msg, SV_ModelIndex(pr_strings+ent->v.weaponmodel));
+		MSG_WriteByte (msg, SV_ModelIndex(PR_GetString(ent->v.weaponmodel)));
 	
 	MSG_WriteShort (msg, ent->v.health);
 	MSG_WriteByte (msg, ent->v.currentammo);
@@ -952,8 +946,9 @@ void SV_CreateBaseline (void)
 		else
 		{
 			svent->baseline.colormap = 0;
-			svent->baseline.modelindex =
-				SV_ModelIndex(pr_strings + svent->v.model);
+			//svent->baseline.modelindex =
+				//SV_ModelIndex(pr_strings + svent->v.model);
+			svent->baseline.modelindex = SV_ModelIndex(PR_GetString(svent->v.model));
 		}
 		
 	//
@@ -984,7 +979,7 @@ Tell all the clients that the server is changing levels
 */
 void SV_SendReconnect (void)
 {
-	char	data[128];
+	unsigned char	data[128];
 	sizebuf_t	msg;
 
 	msg.data = data;
@@ -996,11 +991,9 @@ void SV_SendReconnect (void)
 	NET_SendToAll (&msg, 5);
 	
 	if (cls.state != ca_dedicated)
-#ifdef QUAKE2
-		Cbuf_InsertText ("reconnect\n");
-#else
+
 		Cmd_ExecuteString ("reconnect\n", src_command);
-#endif
+
 }
 
 
@@ -1041,12 +1034,11 @@ This is called at the start of each level
 */
 extern float		scr_centertime_off;
 
-#ifdef QUAKE2
-void SV_SpawnServer (char *server, char *startspot)
-#else
+
 void SV_SpawnServer (char *server)
-#endif
+
 {
+	static char	dummy[8] = { 0,0,0,0,0,0,0,0 };	
 	edict_t		*ent;
 	int			i;
 
@@ -1087,10 +1079,7 @@ void SV_SpawnServer (char *server)
 	memset (&sv, 0, sizeof(sv));
 
 	strcpy (sv.name, server);
-#ifdef QUAKE2
-	if (startspot)
-		strcpy(sv.startspot, startspot);
-#endif
+
 
 // load progs to get entity field count
 	PR_LoadProgs ();
@@ -1135,28 +1124,32 @@ void SV_SpawnServer (char *server)
 		return;
 	}
 	sv.models[1] = sv.worldmodel;
-
+	
 //
 // clear world interaction links
 //
 	SV_ClearWorld ();
 	
-	sv.sound_precache[0] = pr_strings;
+	//sv.sound_precache[0] = pr_strings;
 
-	sv.model_precache[0] = pr_strings;
+	//sv.model_precache[0] = pr_strings;
+	sv.sound_precache[0] = dummy;
+	sv.model_precache[0] = dummy;	
 	sv.model_precache[1] = sv.modelname;
 	for (i=1 ; i<sv.worldmodel->numsubmodels ; i++)
 	{
 		sv.model_precache[1+i] = localmodels[i];
 		sv.models[i+1] = Mod_ForName (localmodels[i], false);
 	}
+
 //
 // load the rest of the entities
 //	
 	ent = EDICT_NUM(0);
 	memset (&ent->v, 0, progs->entityfields * 4);
 	ent->free = false;
-	ent->v.model = sv.worldmodel->name - pr_strings;
+	//ent->v.model = sv.worldmodel->name - pr_strings;
+	ent->v.model = PR_SetString(sv.worldmodel->name);
 	ent->v.modelindex = 1;		// world model
 	ent->v.solid = SOLID_BSP;
 	ent->v.movetype = MOVETYPE_PUSH;
@@ -1166,10 +1159,9 @@ void SV_SpawnServer (char *server)
 	else
 		pr_global_struct->deathmatch = deathmatch.value;
 
-	pr_global_struct->mapname = sv.name - pr_strings;
-#ifdef QUAKE2
-	pr_global_struct->startspot = sv.startspot - pr_strings;
-#endif
+	//pr_global_struct->mapname = sv.name - pr_strings;
+	pr_global_struct->mapname = PR_SetString(sv.name);	
+
 
 // serverflags are for cross level information (sigils)
 	pr_global_struct->serverflags = svs.serverflags;

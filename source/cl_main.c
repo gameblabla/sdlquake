@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -24,10 +24,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
 
+// R2-Tec
+cvar_t	command = {"_command", "", true};
+
 // these two are not intended to be set directly
 cvar_t	cl_name = {"_cl_name", "player", true};
 cvar_t	cl_color = {"_cl_color", "0", true};
 
+cvar_t  cl_showfps = {"cl_showfps","0"};// 2001-11-31 FPS display by QuakeForge/Muff
 cvar_t	cl_shownet = {"cl_shownet","0"};	// can be 0, 1, or 2
 cvar_t	cl_nolerp = {"cl_nolerp","0"};
 
@@ -40,9 +44,9 @@ cvar_t	m_yaw = {"m_yaw","0.022", true};
 cvar_t	m_forward = {"m_forward","1", true};
 cvar_t	m_side = {"m_side","0.8", true};
 
-
 client_static_t	cls;
 client_state_t	cl;
+
 // FIXME: put these on hunk?
 efrag_t			cl_efrags[MAX_EFRAGS];
 entity_t		cl_entities[MAX_EDICTS];
@@ -52,7 +56,6 @@ dlight_t		cl_dlights[MAX_DLIGHTS];
 
 int				cl_numvisedicts;
 entity_t		*cl_visedicts[MAX_VISEDICTS];
-
 /*
 =====================
 CL_ClearState
@@ -67,17 +70,17 @@ void CL_ClearState (void)
 		Host_ClearMemory ();
 
 // wipe the entire cl structure
-	memset (&cl, 0, sizeof(cl));
+	Q_memset (&cl, 0, sizeof(cl));
 
 	SZ_Clear (&cls.message);
 
-// clear other arrays	
-	memset (cl_efrags, 0, sizeof(cl_efrags));
-	memset (cl_entities, 0, sizeof(cl_entities));
-	memset (cl_dlights, 0, sizeof(cl_dlights));
-	memset (cl_lightstyle, 0, sizeof(cl_lightstyle));
-	memset (cl_temp_entities, 0, sizeof(cl_temp_entities));
-	memset (cl_beams, 0, sizeof(cl_beams));
+// clear other arrays
+	Q_memset (cl_efrags, 0, sizeof(cl_efrags));
+	Q_memset (cl_entities, 0, sizeof(cl_entities));
+	Q_memset (cl_dlights, 0, sizeof(cl_dlights));
+	Q_memset (cl_lightstyle, 0, sizeof(cl_lightstyle));
+	Q_memset (cl_temp_entities, 0, sizeof(cl_temp_entities));
+	Q_memset (cl_beams, 0, sizeof(cl_beams));
 
 //
 // allocate the efrags and chain together into a free list
@@ -100,7 +103,7 @@ void CL_Disconnect (void)
 {
 // stop sounds (especially looping!)
 	S_StopAllSounds (true);
-	
+
 // bring the console down and fade the colors back to normal
 //	SCR_BringDownConsole ();
 
@@ -137,7 +140,6 @@ void CL_Disconnect_f (void)
 
 
 
-
 /*
 =====================
 CL_EstablishConnection
@@ -145,24 +147,26 @@ CL_EstablishConnection
 Host should be either "local" or a net address to be passed on
 =====================
 */
-void CL_EstablishConnection (char *host)
-{
-	if (cls.state == ca_dedicated)
-		return;
+void CL_EstablishConnection (char *host) { 
+	if (cls.state == ca_dedicated) 
+		return; 
 
-	if (cls.demoplayback)
-		return;
+	if (cls.demoplayback) 
+		return; 
 
-	CL_Disconnect ();
+	CL_Disconnect (); 
+	cls.netcon = NET_Connect (host); 
 
-	cls.netcon = NET_Connect (host);
-	if (!cls.netcon)
-		Host_Error ("CL_Connect: connect failed\n");
-	Con_DPrintf ("CL_EstablishConnection: connected to %s\n", host);
-	
-	cls.demonum = -1;			// not in the demo loop now
-	cls.state = ca_connected;
-	cls.signon = 0;				// need all the signon messages before playing
+	if (!cls.netcon) 
+		Host_Error ("CL_Connect: connect failed\n"); 
+
+	Con_DPrintf ("CL_EstablishConnection: connected to %s\n", host); 
+
+	cls.demonum = -1; // not in the demo loop now 
+	cls.state = ca_connected; 
+	cls.signon = 0; // need all the signon messages before playing 
+
+	MSG_WriteByte (&cls.message, clc_nop); // ProQuake NAT Fix 
 }
 
 /*
@@ -176,34 +180,39 @@ void CL_SignonReply (void)
 {
 	char 	str[8192];
 
-Con_DPrintf ("CL_SignonReply: %i\n", cls.signon);
+	GpError("CL_SignonReply",0);
+	Con_DPrintf ("CL_SignonReply: %i\n", cls.signon);
 
 	switch (cls.signon)
 	{
 	case 1:
+		GpError("CL_SignonReply 1",1);
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, "prespawn");
 		break;
-		
-	case 2:		
+
+	case 2:
+		GpError("CL_SignonReply 2",1);
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, va("name \"%s\"\n", cl_name.string));
-	
+
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, va("color %i %i\n", ((int)cl_color.value)>>4, ((int)cl_color.value)&15));
-	
+
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		sprintf (str, "spawn %s", cls.spawnparms);
 		MSG_WriteString (&cls.message, str);
 		break;
-		
-	case 3:	
+
+	case 3:
+		GpError("CL_SignonReply 3",1);
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, "begin");
 		Cache_Report ();		// print remaining memory
 		break;
-		
+
 	case 4:
+		GpError("CL_SignonReply 4",1);
 		SCR_EndLoadingPlaque ();		// allow normal screen updates
 		break;
 	}
@@ -250,7 +259,7 @@ void CL_PrintEntities_f (void)
 {
 	entity_t	*ent;
 	int			i;
-	
+
 	for (i=0,ent=cl_entities ; i<cl.num_entities ; i++,ent++)
 	{
 		Con_Printf ("%3i:",i);
@@ -263,7 +272,6 @@ void CL_PrintEntities_f (void)
 		,ent->model->name,ent->frame, ent->origin[0], ent->origin[1], ent->origin[2], ent->angles[0], ent->angles[1], ent->angles[2]);
 	}
 }
-
 
 /*
 ===============
@@ -278,7 +286,7 @@ void SetPal (int i)
 	static int old;
 	byte	pal[768];
 	int		c;
-	
+
 	if (i == old)
 		return;
 	old = i;
@@ -327,7 +335,7 @@ dlight_t *CL_AllocDlight (int key)
 		{
 			if (dl->key == key)
 			{
-				memset (dl, 0, sizeof(*dl));
+				Q_memset (dl, 0, sizeof(*dl));
 				dl->key = key;
 				return dl;
 			}
@@ -340,18 +348,17 @@ dlight_t *CL_AllocDlight (int key)
 	{
 		if (dl->die < cl.time)
 		{
-			memset (dl, 0, sizeof(*dl));
+			Q_memset (dl, 0, sizeof(*dl));
 			dl->key = key;
 			return dl;
 		}
 	}
 
 	dl = &cl_dlights[0];
-	memset (dl, 0, sizeof(*dl));
+	Q_memset (dl, 0, sizeof(*dl));
 	dl->key = key;
 	return dl;
 }
-
 
 /*
 ===============
@@ -364,21 +371,20 @@ void CL_DecayLights (void)
 	int			i;
 	dlight_t	*dl;
 	float		time;
-	
-	time = cl.time - cl.oldtime;
+
+	time = (float)(cl.time - cl.oldtime);
 
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
 		if (dl->die < cl.time || !dl->radius)
 			continue;
-		
+
 		dl->radius -= time*dl->decay;
 		if (dl->radius < 0)
 			dl->radius = 0;
 	}
 }
-
 
 /*
 ===============
@@ -392,20 +398,20 @@ float	CL_LerpPoint (void)
 {
 	float	f, frac;
 
-	f = cl.mtime[0] - cl.mtime[1];
-	
+	f = (float)(cl.mtime[0] - cl.mtime[1]);
+
 	if (!f || cl_nolerp.value || cls.timedemo || sv.active)
 	{
 		cl.time = cl.mtime[0];
 		return 1;
 	}
-		
+
 	if (f > 0.1)
 	{	// dropped packet, or start of demo
 		cl.mtime[1] = cl.mtime[0] - 0.1;
-		f = 0.1;
+		f = (float)0.1;
 	}
-	frac = (cl.time - cl.mtime[1]) / f;
+	frac = (float)((cl.time - cl.mtime[1]) / f);
 //Con_Printf ("frac: %f\n",frac);
 	if (frac < 0)
 	{
@@ -429,10 +435,9 @@ SetPal(2);
 	}
 	else
 		SetPal(0);
-		
+
 	return frac;
 }
-
 
 /*
 ===============
@@ -449,7 +454,7 @@ void CL_RelinkEntities (void)
 	vec3_t		oldorg;
 	dlight_t	*dl;
 
-// determine partial update time	
+// determine partial update time
 	frac = CL_LerpPoint ();
 
 	cl_numvisedicts = 0;
@@ -458,12 +463,12 @@ void CL_RelinkEntities (void)
 // interpolate player info
 //
 	for (i=0 ; i<3 ; i++)
-		cl.velocity[i] = cl.mvelocity[1][i] + 
+		cl.velocity[i] = cl.mvelocity[1][i] +
 			frac * (cl.mvelocity[0][i] - cl.mvelocity[1][i]);
 
 	if (cls.demoplayback)
 	{
-	// interpolate the angles	
+	// interpolate the angles
 		for (j=0 ; j<3 ; j++)
 		{
 			d = cl.mviewangles[0][j] - cl.mviewangles[1][j];
@@ -474,9 +479,9 @@ void CL_RelinkEntities (void)
 			cl.viewangles[j] = cl.mviewangles[1][j] + frac*d;
 		}
 	}
-	
-	bobjrotate = anglemod(100*cl.time);
-	
+
+	bobjrotate = anglemod((float)(100*cl.time));
+
 // start on the entity after the world
 	for (i=1,ent=cl_entities+1 ; i<cl.num_entities ; i++,ent++)
 	{
@@ -524,12 +529,13 @@ void CL_RelinkEntities (void)
 					d += 360;
 				ent->angles[j] = ent->msg_angles[1][j] + f*d;
 			}
-			
 		}
 
 // rotate binary objects locally
-		if (ent->model->flags & EF_ROTATE)
+		if (ent->model->flags & EF_ROTATE) {
 			ent->angles[1] = bobjrotate;
+			ent->origin[2] += (( sin(bobjrotate/90*M_PI) * 5) + 5 );
+		}
 
 		if (ent->effects & EF_BRIGHTFIELD)
 			R_EntityParticles (ent);
@@ -545,30 +551,30 @@ void CL_RelinkEntities (void)
 			VectorCopy (ent->origin,  dl->origin);
 			dl->origin[2] += 16;
 			AngleVectors (ent->angles, fv, rv, uv);
-			 
+
 			VectorMA (dl->origin, 18, fv, dl->origin);
-			dl->radius = 200 + (rand()&31);
+			dl->radius = (float)(200 + (rand()&31));
 			dl->minlight = 32;
-			dl->die = cl.time + 0.1;
+			dl->die = (float)(cl.time + 0.1);
 		}
 		if (ent->effects & EF_BRIGHTLIGHT)
-		{			
+		{
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
 			dl->origin[2] += 16;
-			dl->radius = 400 + (rand()&31);
-			dl->die = cl.time + 0.001;
+			dl->radius = (float)(400 + (rand()&31));
+			dl->die = (float)(cl.time + 0.001);
 		}
 		if (ent->effects & EF_DIMLIGHT)
-		{			
+		{
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
-			dl->radius = 200 + (rand()&31);
-			dl->die = cl.time + 0.001;
+			dl->radius = (float)(200 + (rand()&31));
+			dl->die = (float)(cl.time + 0.001);
 		}
 #ifdef QUAKE2
 		if (ent->effects & EF_DARKLIGHT)
-		{			
+		{
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
 			dl->radius = 200.0 + (rand()&31);
@@ -576,7 +582,7 @@ void CL_RelinkEntities (void)
 			dl->dark = true;
 		}
 		if (ent->effects & EF_LIGHT)
-		{			
+		{
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
 			dl->radius = 200;
@@ -598,7 +604,7 @@ void CL_RelinkEntities (void)
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin, dl->origin);
 			dl->radius = 200;
-			dl->die = cl.time + 0.01;
+			dl->die = (float)(cl.time + 0.01);
 		}
 		else if (ent->model->flags & EF_GRENADE)
 			R_RocketTrail (oldorg, ent->origin, 1);
@@ -620,9 +626,7 @@ void CL_RelinkEntities (void)
 			cl_numvisedicts++;
 		}
 	}
-
 }
-
 
 /*
 ===============
@@ -637,19 +641,26 @@ int CL_ReadFromServer (void)
 
 	cl.oldtime = cl.time;
 	cl.time += host_frametime;
-	
+
 	do
 	{
+
+
 		ret = CL_GetMessage ();
-		if (ret == -1)
+		if (ret == -1){
 			Host_Error ("CL_ReadFromServer: lost server connection");
+		}
 		if (!ret)
 			break;
-		
-		cl.last_received_message = realtime;
+
+
+		cl.last_received_message = (float)realtime;
 		CL_ParseServerMessage ();
+
+
 	} while (ret && cls.state == ca_connected);
-	
+
+
 	if (cl_shownet.value)
 		Con_Printf ("\n");
 
@@ -659,6 +670,7 @@ int CL_ReadFromServer (void)
 //
 // bring the links up to date
 //
+
 	return 0;
 }
 
@@ -674,17 +686,20 @@ void CL_SendCmd (void)
 	if (cls.state != ca_connected)
 		return;
 
+	GpError("CL_SendCmd",2);
+
 	if (cls.signon == SIGNONS)
 	{
+		GpError("CL_SendCmd send signons",0);
 	// get basic movement from keyboard
 		CL_BaseMove (&cmd);
-	
+
 	// allow mice or other external controllers to add to the move
 		IN_Move (&cmd);
-	
+
 	// send the unreliable message
 		CL_SendMove (&cmd);
-	
+
 	}
 
 	if (cls.demoplayback)
@@ -692,21 +707,27 @@ void CL_SendCmd (void)
 		SZ_Clear (&cls.message);
 		return;
 	}
-	
+
 // send the reliable message
-	if (!cls.message.cursize)
+	if (!cls.message.cursize){
+		GpError("CL_SendCmd no mes",0);
 		return;		// no message at all
-	
+	}
+
 	if (!NET_CanSendMessage (cls.netcon))
 	{
+		GpError("CL_SendCmd cant send",0);
 		Con_DPrintf ("CL_WriteToServer: can't send\n");
 		return;
 	}
 
-	if (NET_SendMessage (cls.netcon, &cls.message) == -1)
+	if (NET_SendMessage (cls.netcon, &cls.message) == -1){
+		GpError("CL_SendCmd lost con",2);
 		Host_Error ("CL_WriteToServer: lost server connection");
+	}
 
 	SZ_Clear (&cls.message);
+	GpError("CL_SendCmd done",1);
 }
 
 /*
@@ -715,15 +736,16 @@ CL_Init
 =================
 */
 void CL_Init (void)
-{	
+{
 	SZ_Alloc (&cls.message, 1024);
 
 	CL_InitInput ();
 	CL_InitTEnts ();
-	
+
 //
 // register our commands
 //
+	Cvar_RegisterVariable (&command);
 	Cvar_RegisterVariable (&cl_name);
 	Cvar_RegisterVariable (&cl_color);
 	Cvar_RegisterVariable (&cl_upspeed);
@@ -734,6 +756,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_yawspeed);
 	Cvar_RegisterVariable (&cl_pitchspeed);
 	Cvar_RegisterVariable (&cl_anglespeedkey);
+	Cvar_RegisterVariable (&cl_showfps);// 2001-11-31 FPS display by QuakeForge/Muff
 	Cvar_RegisterVariable (&cl_shownet);
 	Cvar_RegisterVariable (&cl_nolerp);
 	Cvar_RegisterVariable (&lookspring);
@@ -746,11 +769,13 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&m_side);
 
 //	Cvar_RegisterVariable (&cl_autofire);
-	
+
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
 	Cmd_AddCommand ("record", CL_Record_f);
 	Cmd_AddCommand ("stop", CL_Stop_f);
+	//Cmd_AddCommand ("gpplaydemo", CL_PlayDemo_f);
+	//	Cmd_AddCommand ("playdemo", CL_PlayDemo_silentfail);
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f);
 	Cmd_AddCommand ("timedemo", CL_TimeDemo_f);
 }

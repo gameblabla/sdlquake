@@ -69,12 +69,15 @@ qsocket_t *Loop_Connect (char *host)
 	if (Q_strcmp(host,"local") != 0)
 		return NULL;
 
+	GpError("Loop Connect",0);
+
 	localconnectpending = true;
 
 	if (!loop_client)
 	{
 		if ((loop_client = NET_NewQSocket ()) == NULL)
 		{
+			GpError("Loop Connect - client Error",0);
 			Con_Printf("Loop_Connect: no qsocket available\n");
 			return NULL;
 		}
@@ -88,6 +91,7 @@ qsocket_t *Loop_Connect (char *host)
 	{
 		if ((loop_server = NET_NewQSocket ()) == NULL)
 		{
+			GpError("Loop Connect - server Error",0);
 			Con_Printf("Loop_Connect: no qsocket available\n");
 			return NULL;
 		}
@@ -106,7 +110,9 @@ qsocket_t *Loop_Connect (char *host)
 
 qsocket_t *Loop_CheckNewConnections (void)
 {
+	GpError("Loop_CheckNewConnections",0);
 	if (!localconnectpending){
+		GpError("Loop_CheckNewConnections NULL",0);
 		return NULL;
 	}
 
@@ -117,6 +123,7 @@ qsocket_t *Loop_CheckNewConnections (void)
 	loop_client->sendMessageLength = 0;
 	loop_client->receiveMessageLength = 0;
 	loop_client->canSend = true;
+	GpError("Loop_CheckNewConnections done",0);
 	return loop_server;
 }
 
@@ -229,6 +236,7 @@ int Loop_SendUnreliableMessage (qsocket_t *sock, sizebuf_t *data)
 	Q_memcpy(buffer, data->data, data->cursize);
 	*bufferLength = IntAlign(*bufferLength + data->cursize + 4);
 
+	GpError("Loop_SUM : done",2);
 	return 1;
 }
 

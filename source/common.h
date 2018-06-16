@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -19,15 +19,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // comndef.h  -- general definitions
 
-#if !defined BYTE_DEFINED
+#ifndef _COMMON_H_
+#define _COMMON_H_
+
+//#include "zlib.h"
+
+//#ifndef BYTE_DEFINED
 typedef unsigned char 		byte;
-#define BYTE_DEFINED 1
-#endif
+//#define BYTE_DEFINED 1
+//#endif
 
 #undef true
 #undef false
 
-typedef enum {false, true, qbool_anytrue = 0x10000 }qboolean;
+typedef enum {false, true}	qboolean;
+
+int doublesize;
 
 //============================================================================
 
@@ -103,7 +110,9 @@ void MSG_WriteLong (sizebuf_t *sb, int c);
 void MSG_WriteFloat (sizebuf_t *sb, float f);
 void MSG_WriteString (sizebuf_t *sb, char *s);
 void MSG_WriteCoord (sizebuf_t *sb, float f);
+//void MSG_WriteCoordFPM (sizebuf_t *sb, fixedpoint_t f);
 void MSG_WriteAngle (sizebuf_t *sb, float f);
+//void MSG_WriteAngleFPM (sizebuf_t *sb, fixedpoint_t f);
 
 extern	int			msg_readcount;
 extern	qboolean	msg_badread;		// set if a read goes beyond end of message
@@ -122,6 +131,7 @@ float MSG_ReadAngle (void);
 //============================================================================
 
 void Q_memset (void *dest, int fill, int count);
+/*__inline*/ // inline static void Q_memcpy (void *dest, void *src, int count) {gm_memcpy(dest, src, count);};
 void Q_memcpy (void *dest, void *src, int count);
 int Q_memcmp (void *m1, void *m2, int count);
 void Q_strcpy (char *dest, char *src);
@@ -135,6 +145,7 @@ int Q_strcasecmp (char *s1, char *s2);
 int Q_strncasecmp (char *s1, char *s2, int n);
 int	Q_atoi (char *str);
 float Q_atof (char *str);
+void Q_strncpyz (char *dest, char *src, size_t size);
 
 //============================================================================
 
@@ -181,3 +192,7 @@ void COM_LoadCacheFile (char *path, struct cache_user_s *cu);
 extern	struct cvar_s	registered;
 
 extern qboolean		standard_quake, rogue, hipnotic;
+
+
+
+#endif // _COMMON_H_

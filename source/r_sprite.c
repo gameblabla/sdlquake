@@ -27,7 +27,6 @@ static vec5_t			clip_verts[2][MAXWORKINGVERTS];
 static int				sprite_width, sprite_height;
 
 spritedesc_t			r_spritedesc;
-	
 
 /*
 ================
@@ -45,7 +44,6 @@ void R_RotateSprite (float beamlength)
 	VectorAdd (r_entorigin, vec, r_entorigin);
 	VectorSubtract (modelorg, vec, modelorg);
 }
-
 
 /*
 =============
@@ -127,7 +125,6 @@ int R_ClipSpriteFace (int nump, clipplane_t *pclipplane)
 	return outcount;
 }
 
-
 /*
 ================
 R_SetupAndDrawSprite
@@ -164,20 +161,20 @@ void R_SetupAndDrawSprite ()
 	pverts[1][0] = r_entorigin[0] + up[0] + right[0];
 	pverts[1][1] = r_entorigin[1] + up[1] + right[1];
 	pverts[1][2] = r_entorigin[2] + up[2] + right[2];
-	pverts[1][3] = sprite_width;
+	pverts[1][3] = (float)sprite_width;
 	pverts[1][4] = 0;
 
 	pverts[2][0] = r_entorigin[0] + down[0] + right[0];
 	pverts[2][1] = r_entorigin[1] + down[1] + right[1];
 	pverts[2][2] = r_entorigin[2] + down[2] + right[2];
-	pverts[2][3] = sprite_width;
-	pverts[2][4] = sprite_height;
+	pverts[2][3] = (float)sprite_width;
+	pverts[2][4] = (float)sprite_height;
 
 	pverts[3][0] = r_entorigin[0] + down[0] + left[0];
 	pverts[3][1] = r_entorigin[1] + down[1] + left[1];
 	pverts[3][2] = r_entorigin[2] + down[2] + left[2];
 	pverts[3][3] = 0;
-	pverts[3][4] = sprite_height;
+	pverts[3][4] = (float)sprite_height;
 
 // clip to the frustum in worldspace
 	nump = 4;
@@ -202,10 +199,10 @@ void R_SetupAndDrawSprite ()
 		TransformVector (local, transformed);
 
 		if (transformed[2] < NEAR_CLIP)
-			transformed[2] = NEAR_CLIP;
+			transformed[2] = (float)NEAR_CLIP;
 
 		pout = &outverts[i];
-		pout->zi = 1.0 / transformed[2];
+		pout->zi = (float)(1.0 / transformed[2]);
 		if (pout->zi > r_spritedesc.nearzi)
 			r_spritedesc.nearzi = pout->zi;
 
@@ -226,7 +223,6 @@ void R_SetupAndDrawSprite ()
 	r_spritedesc.pverts = outverts;
 	D_DrawSprite ();
 }
-
 
 /*
 ================
@@ -259,7 +255,7 @@ mspriteframe_t *R_GetSpriteframe (msprite_t *psprite)
 		numframes = pspritegroup->numframes;
 		fullinterval = pintervals[numframes-1];
 
-		time = cl.time + currententity->syncbase;
+		time = (float)(cl.time + currententity->syncbase);
 
 	// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 	// are positive, so we don't have to worry about division by 0
@@ -378,9 +374,9 @@ void R_DrawSprite (void)
 	// generate the sprite's axes, parallel to the viewplane, but rotated in
 	// that plane around the center according to the sprite entity's roll
 	// angle. So vpn stays the same, but vright and vup rotate
-		angle = currententity->angles[ROLL] * (M_PI*2 / 360);
-		sr = sin(angle);
-		cr = cos(angle);
+		angle = (float)(currententity->angles[ROLL] * (M_PI*2 / 360));
+		sr = (float)(sin(angle));
+		cr = (float)(cos(angle));
 
 		for (i=0 ; i<3 ; i++)
 		{
@@ -398,4 +394,3 @@ void R_DrawSprite (void)
 
 	R_SetupAndDrawSprite ();
 }
-

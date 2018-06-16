@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -68,10 +68,10 @@ float	fv;
 void R_GenerateSpans (void);
 void R_GenerateSpansBackward (void);
 
+
 void R_LeadingEdge (edge_t *edge);
 void R_LeadingEdgeBackwards (edge_t *edge);
 void R_TrailingEdge (surf_t *surf, edge_t *edge);
-
 
 //=============================================================================
 
@@ -118,7 +118,6 @@ void R_DrawCulledPolys (void)
 	}
 }
 
-
 /*
 ==============
 R_BeginEdgeFrame
@@ -129,6 +128,7 @@ void R_BeginEdgeFrame (void)
 	int		v;
 
 	edge_p = r_edges;
+
 	edge_max = &r_edges[r_numallocatededges];
 
 	surface_p = &surfaces[2];	// background is surface 1,
@@ -156,7 +156,6 @@ void R_BeginEdgeFrame (void)
 		newedges[v] = removeedges[v] = NULL;
 	}
 }
-
 
 #if	!id386
 
@@ -202,7 +201,7 @@ addedge:
 }
 
 #endif	// !id386
-	
+
 
 #if	!id386
 
@@ -242,29 +241,29 @@ nextedge:
 		if (pedge->u < pedge->prev->u)
 			goto pushback;
 		pedge = pedge->next;
-			
+
 		pedge->u += pedge->u_step;
 		if (pedge->u < pedge->prev->u)
 			goto pushback;
 		pedge = pedge->next;
-			
+
 		pedge->u += pedge->u_step;
 		if (pedge->u < pedge->prev->u)
 			goto pushback;
 		pedge = pedge->next;
-			
+
 		pedge->u += pedge->u_step;
 		if (pedge->u < pedge->prev->u)
 			goto pushback;
 		pedge = pedge->next;
-			
-		goto nextedge;		
-		
+
+		goto nextedge;
+
 pushback:
 		if (pedge == &edge_aftertail)
 			return;
-			
-	// push it back to keep it sorted		
+
+	// push it back to keep it sorted
 		pnext_edge = pedge->next;
 
 	// pull the edge out of the edge list
@@ -326,7 +325,6 @@ void R_CleanupSpan ()
 		surf = surf->next;
 	} while (surf != &surfaces[1]);
 }
-
 
 /*
 ==============
@@ -397,7 +395,7 @@ newtop:
 
 		// set last_u on the new span
 		surf->last_u = iu;
-				
+
 gotposition:
 	// insert before surf2
 		surf->next = surf2;
@@ -406,7 +404,6 @@ gotposition:
 		surf2->prev = surf;
 	}
 }
-
 
 /*
 ==============
@@ -449,7 +446,6 @@ void R_TrailingEdge (surf_t *surf, edge_t *edge)
 	}
 }
 
-
 #if	!id386
 
 /*
@@ -462,7 +458,11 @@ void R_LeadingEdge (edge_t *edge)
 	espan_t			*span;
 	surf_t			*surf, *surf2;
 	int				iu;
-	float			fu, newzi, testzi, newzitop, newzibottom;
+#ifndef USE_PQ_OPT3
+	double			fu, newzi, testzi, newzitop, newzibottom;
+#else
+	int				fu, newzi, testzi, newzitop, newzibottom;
+#endif
 
 	if (edge->surfs[1])
 	{
@@ -487,6 +487,30 @@ void R_LeadingEdge (edge_t *edge)
 			if (surf->insubmodel && (surf->key == surf2->key))
 			{
 			// must be two bmodels in the same leaf; sort on 1/z
+#ifndef USE_PQ_OPT3
+				fu = (float)(edge->u - 0xFFFFF) * (1.0 / 0x100000);
+				newzi = surf->d_ziorigin + fv*surf->d_zistepv +
+						fu*surf->d_zistepu;
+				newzibottom = newzi * 0.99;
+
+				testzi = surf2->d_ziorigin + fv*surf2->d_zistepv +
+						fu*surf2->d_zistepu;
+
+				if (newzibottom >= testzi)
+				{
+					goto newtop;
+				}
+
+				newzitop = newzi * 1.01;
+
+				if (newzitop >= testzi)
+				{
+					if (surf->d_zistepu >= surf2->d_zistepu)
+					{
+						goto newtop;
+					}
+				}
+#else/*
 				fu = (float)(edge->u - 0xFFFFF) * (1.0 / 0x100000);
 				newzi = surf->d_ziorigin + fv*surf->d_zistepv +
 						fu*surf->d_zistepu;
@@ -507,9 +531,10 @@ void R_LeadingEdge (edge_t *edge)
 					{
 						goto newtop;
 					}
-				}
-			}
+				}*/
+#endif
 
+			}
 continue_search:
 
 			do
@@ -523,7 +548,7 @@ continue_search:
 			// active is in front, so keep going unless it's a bmodel
 				if (!surf->insubmodel)
 					goto continue_search;
-
+/*
 			// must be two bmodels in the same leaf; sort on 1/z
 				fu = (float)(edge->u - 0xFFFFF) * (1.0 / 0x100000);
 				newzi = surf->d_ziorigin + fv*surf->d_zistepv +
@@ -546,7 +571,7 @@ continue_search:
 						goto gotposition;
 					}
 				}
-
+*/
 				goto continue_search;
 			}
 
@@ -568,7 +593,7 @@ newtop:
 
 			// set last_u on the new span
 			surf->last_u = iu;
-				
+
 gotposition:
 		// insert before surf2
 			surf->next = surf2;
@@ -578,7 +603,6 @@ gotposition:
 		}
 	}
 }
-
 
 /*
 ==============
@@ -598,7 +622,7 @@ void R_GenerateSpans (void)
 
 // generate spans
 	for (edge=edge_head.next ; edge != &edge_tail; edge=edge->next)
-	{			
+	{
 		if (edge->surfs[0])
 		{
 		// it has a left surface, so a surface is going away for this span
@@ -636,7 +660,7 @@ void R_GenerateSpansBackward (void)
 
 // generate spans
 	for (edge=edge_head.next ; edge != &edge_tail; edge=edge->next)
-	{			
+	{
 		if (edge->surfs[0])
 			R_TrailingEdge (&surfaces[edge->surfs[0]], edge);
 
@@ -648,11 +672,14 @@ void R_GenerateSpansBackward (void)
 }
 
 
+//extern byte	*basespans;
+//byte	basespans[MAXSPANS*sizeof(espan_t)+CACHE_SIZE];
+
 /*
 ==============
 R_ScanEdges
 
-Input: 
+Input:
 newedges[] array
 	this has links to edges, which have links to surfaces
 
@@ -660,15 +687,19 @@ Output:
 Each surface has a linked list of its visible spans
 ==============
 */
+
 void R_ScanEdges (void)
 {
+  byte	basespans[MAXSPANS*sizeof(espan_t)+CACHE_SIZE];
 	int		iv, bottom;
-	byte	basespans[MAXSPANS*sizeof(espan_t)+CACHE_SIZE];
+	//byte	*basespans;
 	espan_t	*basespan_p;
 	surf_t	*s;
 
-	basespan_p = (espan_t *)
-			((long)(basespans + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
+	//basespans = malloc(MAXSPANS*sizeof(espan_t)+CACHE_SIZE);
+
+
+	basespan_p = (espan_t *) ((long)(basespans + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 	max_span_p = &basespan_p[MAXSPANS - r_refdef.vrect.width];
 
 	span_p = basespan_p;
@@ -682,7 +713,7 @@ void R_ScanEdges (void)
 	edge_head.next = &edge_tail;
 	edge_head.surfs[0] = 0;
 	edge_head.surfs[1] = 1;
-	
+
 	edge_tail.u = (r_refdef.vrectright << 20) + 0xFFFFF;
 	edge_tail_u_shift20 = edge_tail.u >> 20;
 	edge_tail.u_step = 0;
@@ -690,7 +721,7 @@ void R_ScanEdges (void)
 	edge_tail.next = &edge_aftertail;
 	edge_tail.surfs[0] = 1;
 	edge_tail.surfs[1] = 0;
-	
+
 	edge_aftertail.u = -1;		// force a move
 	edge_aftertail.u_step = 0;
 	edge_aftertail.next = &edge_sentinel;
@@ -700,7 +731,8 @@ void R_ScanEdges (void)
 	edge_sentinel.u = 2000 << 24;		// make sure nothing sorts past this
 	edge_sentinel.prev = &edge_aftertail;
 
-//	
+
+//
 // process all scan lines
 //
 	bottom = r_refdef.vrectbottom - 1;
@@ -724,10 +756,10 @@ void R_ScanEdges (void)
 	// the next scan
 		if (span_p >= max_span_p)
 		{
-			VID_UnlockBuffer ();
+		  //			VID_UnlockBuffer ();
 			S_ExtraUpdate ();	// don't let sound get messed up if going slow
-			VID_LockBuffer ();
-		
+			//			VID_LockBuffer ();
+
 			if (r_drawculledpolys)
 			{
 				R_DrawCulledPolys ();
@@ -751,6 +783,7 @@ void R_ScanEdges (void)
 			R_StepActiveU (edge_head.next);
 	}
 
+
 // do the last scan (no need to step or sort or remove on the last scan)
 
 	current_iv = iv;
@@ -764,11 +797,17 @@ void R_ScanEdges (void)
 
 	(*pdrawfunc) ();
 
+
+
 // draw whatever's left in the span list
-	if (r_drawculledpolys)
+	if (r_drawculledpolys) {
 		R_DrawCulledPolys ();
-	else
+	}
+	else {
 		D_DrawSurfaces ();
+	}
+
+	//	free(basespans);
+
+
 }
-
-

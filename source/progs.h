@@ -46,7 +46,24 @@ typedef struct edict_s
 	entvars_t	v;					// C exported fields from progs
 // other fields from progs come immediately after
 } edict_t;
+
+typedef struct edict_FPM_s
+{
+	qboolean	free;
+	link_t		area;				// linked to a division node or leaf
+	
+	int			num_leafs;
+	short		leafnums[MAX_ENT_LEAFS];
+
+	entity_state_FPM_t	baseline;
+	
+	float		freetime;			// sv.time when the object was freed
+	entvars_t	v;					// C exported fields from progs
+// other fields from progs come immediately after
+} edict_FPM_t;
+
 #define	EDICT_FROM_AREA(l) STRUCT_FROM_LINK(l,edict_t,area)
+#define	EDICT_FROM_AREAFPM(l) STRUCT_FROM_LINK(l,edict_FPM_t,area)
 
 //============================================================================
 
@@ -66,42 +83,56 @@ extern	int				pr_edict_size;	// in bytes
 void PR_Init (void);
 
 void PR_ExecuteProgram (func_t fnum);
+void PR_ExecuteProgramFPM (func_t fnum);
 void PR_LoadProgs (void);
 
 void PR_Profile_f (void);
 
-edict_t *ED_Alloc (void);
+edict_t		*ED_Alloc (void);
+edict_FPM_t *ED_AllocFPM (void);
 void ED_Free (edict_t *ed);
+void ED_FreeFPM (edict_FPM_t *ed);
 
 char	*ED_NewString (char *string);
 // returns a copy of the string allocated from the server's string heap
 
 void ED_Print (edict_t *ed);
+void ED_PrintFPM (edict_FPM_t *ed);
 void ED_Write (FILE *f, edict_t *ed);
+void ED_WriteFPM (FILE *f, edict_FPM_t *ed);
 char *ED_ParseEdict (char *data, edict_t *ent);
+char *ED_ParseEdictFPM (char *data, edict_FPM_t *ent);
 
 void ED_WriteGlobals (FILE *f);
 void ED_ParseGlobals (char *data);
 
 void ED_LoadFromFile (char *data);
+void ED_LoadFromFileFPM (char *data);
 
 //define EDICT_NUM(n) ((edict_t *)(sv.edicts+ (n)*pr_edict_size))
 //define NUM_FOR_EDICT(e) (((byte *)(e) - sv.edicts)/pr_edict_size)
 
-edict_t *EDICT_NUM(int n);
+edict_t		*EDICT_NUM(int n);
+edict_FPM_t *EDICT_NUMFPM(int n);
 int NUM_FOR_EDICT(edict_t *e);
+int NUM_FOR_EDICTFPM(edict_FPM_t *e);
 
 #define	NEXT_EDICT(e) ((edict_t *)( (byte *)e + pr_edict_size))
+#define	NEXT_EDICTFPM(e) ((edict_FPM_t *)( (byte *)e + pr_edict_size))
 
 #define	EDICT_TO_PROG(e) ((byte *)e - (byte *)sv.edicts)
+#define	EDICT_TO_PROGFPM(e) ((byte *)e - (byte *)svFPM.edicts)
 #define PROG_TO_EDICT(e) ((edict_t *)((byte *)sv.edicts + e))
+#define PROG_TO_EDICTFPM(e) ((edict_FPM_t *)((byte *)svFPM.edicts + e))
 
 //============================================================================
 
 #define	G_FLOAT(o) (pr_globals[o])
 #define	G_INT(o) (*(int *)&pr_globals[o])
 #define	G_EDICT(o) ((edict_t *)((byte *)sv.edicts+ *(int *)&pr_globals[o]))
+#define	G_EDICTFPM(o) ((edict_FPM_t *)((byte *)svFPM.edicts+ *(int *)&pr_globals[o]))
 #define G_EDICTNUM(o) NUM_FOR_EDICT(G_EDICT(o))
+#define G_EDICTNUMFPM(o) NUM_FOR_EDICTFPM(G_EDICTFPM(o))
 #define	G_VECTOR(o) (&pr_globals[o])
 #define	G_STRING(o) (pr_strings + *(string_t *)&pr_globals[o])
 #define	G_FUNCTION(o) (*(func_t *)&pr_globals[o])
@@ -114,8 +145,11 @@ int NUM_FOR_EDICT(edict_t *e);
 extern	int		type_size[8];
 
 typedef void (*builtin_t) (void);
+typedef void (*builtin_FPM_t) (void);
 extern	builtin_t *pr_builtins;
+extern	builtin_FPM_t *pr_builtinsFPM;
 extern int pr_numbuiltins;
+extern int pr_numbuiltinsFPM;
 
 extern int		pr_argc;
 
@@ -128,7 +162,19 @@ extern	unsigned short		pr_crc;
 void PR_RunError (char *error, ...);
 
 void ED_PrintEdicts (void);
+void ED_PrintEdictsFPM (void);
 void ED_PrintNum (int ent);
 
 eval_t *GetEdictFieldValue(edict_t *ed, char *field);
+eval_t *GetEdictFieldValueFPM(edict_FPM_t *ed, char *field);
 
+//
+// PR STrings stuff
+//
+#define MAX_PRSTR 1024
+
+extern char *pr_strtbl[MAX_PRSTR];
+extern int num_prstr;
+
+char *PR_GetString(int num);
+int PR_SetString(char *s);

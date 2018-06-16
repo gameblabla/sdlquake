@@ -143,7 +143,7 @@ void *Z_Malloc (int size)
 {
 	void	*buf;
 	
-Z_CheckHeap ();	// DEBUG
+	Z_CheckHeap ();	// DEBUG
 	buf = Z_TagMalloc (size, 1);
 	if (!buf)
 		Sys_Error ("Z_Malloc: failed on allocation of %i bytes",size);
@@ -367,7 +367,7 @@ void Hunk_Print (qboolean all)
 	//
 	// print the single block
 	//
-		memcpy (name, h->name, 8);
+		Q_memcpy (name, h->name, 8);
 		if (all)
 			Con_Printf ("%8p :%8i %8s\n",h, h->size, name);
 			
@@ -417,7 +417,7 @@ void *Hunk_AllocName (int size, char *name)
 
 	Cache_FreeLow (hunk_low_used);
 
-	memset (h, 0, size);
+	Q_memset (h, 0, size);
 	
 	h->size = size;
 	h->sentinal = HUNK_SENTINAL;
@@ -445,7 +445,7 @@ void Hunk_FreeToLowMark (int mark)
 {
 	if (mark < 0 || mark > hunk_low_used)
 		Sys_Error ("Hunk_FreeToLowMark: bad mark %i", mark);
-	memset (hunk_base + mark, 0, hunk_low_used - mark);
+	Q_memset (hunk_base + mark, 0, hunk_low_used - mark);
 	hunk_low_used = mark;
 }
 
@@ -469,7 +469,7 @@ void Hunk_FreeToHighMark (int mark)
 	}
 	if (mark < 0 || mark > hunk_high_used)
 		Sys_Error ("Hunk_FreeToHighMark: bad mark %i", mark);
-	memset (hunk_base + hunk_size - hunk_high_used, 0, hunk_high_used - mark);
+	Q_memset (hunk_base + hunk_size - hunk_high_used, 0, hunk_high_used - mark);
 	hunk_high_used = mark;
 }
 
@@ -509,7 +509,7 @@ void *Hunk_HighAllocName (int size, char *name)
 
 	h = (hunk_t *)(hunk_base + hunk_size - hunk_high_used);
 
-	memset (h, 0, size);
+	Q_memset (h, 0, size);
 	h->size = size;
 	h->sentinal = HUNK_SENTINAL;
 	Q_strncpy (h->name, name, 8);
@@ -689,7 +689,7 @@ cache_system_t *Cache_TryAlloc (int size, qboolean nobottom)
 			Sys_Error ("Cache_TryAlloc: %i is greater then free hunk", size);
 
 		new = (cache_system_t *) (hunk_base + hunk_low_used);
-		memset (new, 0, sizeof(*new));
+		Q_memset (new, 0, sizeof(*new));
 		new->size = size;
 
 		cache_head.prev = cache_head.next = new;
@@ -710,7 +710,7 @@ cache_system_t *Cache_TryAlloc (int size, qboolean nobottom)
 		{
 			if ( (byte *)cs - (byte *)new >= size)
 			{	// found space
-				memset (new, 0, sizeof(*new));
+				Q_memset (new, 0, sizeof(*new));
 				new->size = size;
 				
 				new->next = cs;
@@ -733,7 +733,7 @@ cache_system_t *Cache_TryAlloc (int size, qboolean nobottom)
 // try to allocate one at the very end
 	if ( hunk_base + hunk_size - hunk_high_used - (byte *)new >= size)
 	{
-		memset (new, 0, sizeof(*new));
+		Q_memset (new, 0, sizeof(*new));
 		new->size = size;
 		
 		new->next = &cache_head;
@@ -915,11 +915,12 @@ void Memory_Init (void *buf, int size)
 	int p;
 	int zonesize = DYNAMIC_SIZE;
 
+
 	hunk_base = buf;
 	hunk_size = size;
 	hunk_low_used = 0;
 	hunk_high_used = 0;
-	
+
 	Cache_Init ();
 	p = COM_CheckParm ("-zone");
 	if (p)
@@ -929,7 +930,10 @@ void Memory_Init (void *buf, int size)
 		else
 			Sys_Error ("Memory_Init: you must specify a size in KB after -zone");
 	}
+
 	mainzone = Hunk_AllocName (zonesize, "zone" );
+
 	Z_ClearZone (mainzone, zonesize);
+
 }
 

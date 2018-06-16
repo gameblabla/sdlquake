@@ -29,6 +29,9 @@ int	d_y_aspect_shift, d_pix_min, d_pix_max, d_pix_shift;
 int		d_scantable[MAXHEIGHT];
 short	*zspantable[MAXHEIGHT]; 
 
+//Dan East:
+extern int min_vid_width;
+
 /*
 ================
 D_Patch
@@ -72,7 +75,7 @@ void D_ViewChanged (void)
 	d_zrowbytes = vid.width * 2;
 	d_zwidth = vid.width;
 
-	d_pix_min = r_refdef.vrect.width / 320;
+	d_pix_min = r_refdef.vrect.width / min_vid_width/*320*/;
 	if (d_pix_min < 1)
 		d_pix_min = 1;
 
@@ -93,7 +96,8 @@ void D_ViewChanged (void)
 			r_refdef.vrectbottom - (d_pix_max << d_y_aspect_shift);
 
 	{
-		int		i;
+		//Dan: changed to unsigned to shut compiler up
+		unsigned int		i;
 
 		for (i=0 ; i<vid.height; i++)
 		{
@@ -104,4 +108,3 @@ void D_ViewChanged (void)
 
 	D_Patch ();
 }
-

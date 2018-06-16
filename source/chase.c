@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -32,7 +32,6 @@ vec3_t	chase_angles;
 vec3_t	chase_dest;
 vec3_t	chase_dest_angles;
 
-
 void Chase_Init (void)
 {
 	Cvar_RegisterVariable (&chase_back);
@@ -47,11 +46,14 @@ void Chase_Reset (void)
 //	start position 12 units behind head
 }
 
+//Dan: Added forward declaration to prevent compiler warning
+qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t *trace);
+
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact)
 {
 	trace_t	trace;
 
-	memset (&trace, 0, sizeof(trace));
+	Q_memset (&trace, 0, sizeof(trace));
 	SV_RecursiveHullCheck (cl.worldmodel->hulls, 0, 0, 1, start, end, &trace);
 
 	VectorCopy (trace.endpos, impact);
@@ -70,7 +72,7 @@ void Chase_Update (void)
 
 	// calc exact destination
 	for (i=0 ; i<3 ; i++)
-		chase_dest[i] = r_refdef.vieworg[i] 
+		chase_dest[i] = r_refdef.vieworg[i]
 		- forward[i]*chase_back.value
 		- right[i]*chase_right.value;
 	chase_dest[2] = r_refdef.vieworg[2] + chase_up.value;
@@ -84,9 +86,8 @@ void Chase_Update (void)
 	dist = DotProduct (stop, forward);
 	if (dist < 1)
 		dist = 1;
-	r_refdef.viewangles[PITCH] = -atan(stop[2] / dist) / M_PI * 180;
+	r_refdef.viewangles[PITCH] = (float)(-atan(stop[2] / dist) / M_PI * 180);
 
 	// move towards destination
 	VectorCopy (chase_dest, r_refdef.vieworg);
 }
-

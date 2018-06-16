@@ -7,21 +7,24 @@
 viddef_t    vid;                // global video state
 unsigned short  d_8to16table[256];
 
-// The original defaults
-//#define    BASEWIDTH    320
-//#define    BASEHEIGHT   200
-// Much better for high resolution displays
-#define    BASEWIDTH    (640)
-#define    BASEHEIGHT   (480)
+#define    BASEWIDTH    (320)
+#define    BASEHEIGHT   (240)
+
+unsigned int min_vid_width = BASEWIDTH;
+
+// Quake Screen...
+static SDL_Surface *hwscreen = NULL;
+static SDL_Surface *screen = NULL;
 
 int    VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 byte    *VGA_pagebase;
 
-static SDL_Surface *screen = NULL;
-
 static qboolean mouse_avail;
 static float   mouse_x, mouse_y;
 static int mouse_oldbuttonstate = 0;
+
+float start_yaw;
+float yaw_modifier=0;
 
 // No support for option menus
 void (*vid_menudrawfn)(void) = NULL;
@@ -56,7 +59,7 @@ void    VID_Init (unsigned char *palette)
     Uint32 flags;
 
     // Load the SDL library
-    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_CDROM) < 0)
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
         Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
 
     // Set up display mode (width and height)
@@ -75,16 +78,24 @@ void    VID_Init (unsigned char *palette)
     }
 
     // Set video width, height and flags
-    flags = (SDL_SWSURFACE|SDL_HWPALETTE);
+    flags = (SDL_SWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE);
     if ( COM_CheckParm ("-fullscreen") )
         flags |= SDL_FULLSCREEN;
-
+	
     // Initialize display 
-    if (!(screen = SDL_SetVideoMode(vid.width, vid.height, 8, flags)))
+    if (!(hwscreen = SDL_SetVideoMode(vid.width, vid.height, 16, flags)))
         Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
+        
+    // initialize the mouse
+    SDL_ShowCursor(0);
+    
+    vid.width = vid.width;
+	vid.height = vid.height;
+	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 8, 0, 0, 0, 0);
+        
     VID_SetPalette(palette);
     SDL_WM_SetCaption("sdlquake","sdlquake");
-    // now know everything we need to know about the buffer
+	// now know everything we need to know about the buffer
     VGA_width = vid.conwidth = vid.width;
     VGA_height = vid.conheight = vid.height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
@@ -97,21 +108,18 @@ void    VID_Init (unsigned char *palette)
     vid.conrowbytes = vid.rowbytes;
     vid.direct = 0;
     
-    // allocate z buffer and surface cache
-    chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
-    cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
-    chunk += cachesize;
-    d_pzbuffer = Hunk_HighAllocName(chunk, "video");
-    if (d_pzbuffer == NULL)
-        Sys_Error ("Not enough memory for video mode\n");
+	// allocate z buffer and surface cache
+	chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
+	cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
+	chunk += cachesize;
+	d_pzbuffer = Hunk_HighAllocName(chunk, "video");
 
-    // initialize the cache memory 
-        cache = (byte *) d_pzbuffer
-                + vid.width * vid.height * sizeof (*d_pzbuffer);
-    D_InitCaches (cache, cachesize);
+	if (d_pzbuffer == NULL)
+		Sys_Error ("Not enough memory for video mode\n");
 
-    // initialize the mouse
-    SDL_ShowCursor(0);
+	// initialize the cache memory 
+	cache = (byte *) d_pzbuffer + vid.width * vid.height * sizeof (*d_pzbuffer);
+	D_InitCaches (cache, cachesize);
 }
 
 void    VID_Shutdown (void)
@@ -136,15 +144,19 @@ void    VID_Update (vrect_t *rects)
     if (!(sdlrects = (SDL_Rect *)alloca(n*sizeof(*sdlrects))))
         Sys_Error("Out of memory");
     i = 0;
-    for (rect = rects; rect; rect = rect->pnext)
-    {
+
+	for (rect = rects; rect; rect = rect->pnext) {
         sdlrects[i].x = rect->x;
         sdlrects[i].y = rect->y;
         sdlrects[i].w = rect->width;
         sdlrects[i].h = rect->height;
         ++i;
     }
-    SDL_UpdateRects(screen, n, sdlrects);
+
+	SDL_Surface* p = SDL_ConvertSurface(screen, hwscreen->format, 0);
+    SDL_SoftStretch(p, NULL, hwscreen, NULL);
+    SDL_Flip(hwscreen);
+    SDL_FreeSurface(p);
 }
 
 /*
@@ -158,7 +170,7 @@ void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height)
 
 
     if (!screen) return;
-    if ( x < 0 ) x = screen->w+x-1;
+    if ( x < 0 ) x = screen->w+x;
     offset = (Uint8 *)screen->pixels + y*screen->pitch + x;
     while ( height-- )
     {
@@ -177,8 +189,8 @@ D_EndDirectRect
 void D_EndDirectRect (int x, int y, int width, int height)
 {
     if (!screen) return;
-    if (x < 0) x = screen->w+x-1;
-    SDL_UpdateRect(screen, x, y, width, height);
+    if (x < 0) x = screen->w+x;
+    //SDL_UpdateRect(screen, x, y, width, height);
 }
 
 
@@ -383,7 +395,9 @@ void IN_Move (usercmd_t *cmd)
 Sys_ConsoleInput
 ================
 */
-char *Sys_ConsoleInput (void)
-{
+char *Sys_ConsoleInput (void) {
     return 0;
+}
+
+void GpError(char *text, int hold){
 }

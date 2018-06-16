@@ -23,11 +23,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "d_local.h"
 #include "r_local.h"
 
-float           surfscale;
+float			surfscale;
 qboolean        r_cache_thrash;         // set if surface cache is thrashing
 
-int                                     sc_size;
-surfcache_t                     *sc_rover, *sc_base;
+int					sc_size;
+surfcache_t			*sc_rover, *sc_base;
 
 #define GUARDSIZE       4
 
@@ -72,7 +72,6 @@ void D_ClearCacheGuard (void)
 	for (i=0 ; i<GUARDSIZE ; i++)
 		s[i] = (byte)i;
 }
-
 
 /*
 ================
@@ -226,6 +225,7 @@ void D_SCDump (void)
 	}
 }
 
+
 //=============================================================================
 
 // if the num is not a power of 2, assume it will not repeat
@@ -290,17 +290,12 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 //
 // determine shape of surface
 //
-	surfscale = 1.0 / (1<<miplevel);
+	surfscale = (float) 1.0 / (1<<miplevel);
 	r_drawsurf.surfmip = miplevel;
 	r_drawsurf.surfwidth = surface->extents[0] >> miplevel;
 	r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 	r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	
-
-	if( r_drawsurf.surfwidth & 3 )
-	{
-		r_drawsurf.surfwidth = r_drawsurf.surfwidth;
-	}
 //
 // allocate memory if needed
 //
@@ -336,5 +331,3 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 
 	return surface->cachespots[miplevel];
 }
-
-

@@ -69,7 +69,7 @@ Sets everything to NULL
 */
 void ED_ClearEdict (edict_t *e)
 {
-	memset (&e->v, 0, progs->entityfields * 4);
+	Q_memset (&e->v, 0, progs->entityfields * 4);
 	e->free = false;
 }
 
@@ -135,7 +135,7 @@ void ED_Free (edict_t *ed)
 	ed->v.nextthink = -1;
 	ed->v.solid = 0;
 	
-	ed->freetime = sv.time;
+	ed->freetime = (float)sv.time;
 }
 
 //===========================================================================
@@ -268,7 +268,6 @@ Done:
 
 	return (eval_t *)((char *)&ed->v + def->ofs*4);
 }
-
 
 /*
 ============
@@ -543,6 +542,7 @@ void ED_PrintEdicts (void)
 		ED_PrintNum (i);
 }
 
+
 /*
 =============
 ED_PrintEdict_f
@@ -743,7 +743,7 @@ qboolean	ED_ParseEpair (void *base, ddef_t *key, char *s)
 		break;
 		
 	case ev_float:
-		*(float *)d = atof (s);
+		*(float *)d = (float)atof (s);
 		break;
 		
 	case ev_vector:
@@ -752,17 +752,10 @@ qboolean	ED_ParseEpair (void *base, ddef_t *key, char *s)
 		w = string;
 		for (i=0 ; i<3 ; i++)
 		{
-			/*printf("%s %s:%d meh\n", __FUNCTION__, __FILE__, __LINE__ );*/
 			while (*v && *v != ' ')
-			{
-				/*printf("%s %s:%d meh %s\n", __FUNCTION__, __FILE__, __LINE__, v );*/
 				v++;
-			}
 			*v = 0;
-			/*printf("%s %s:%d meh %s\n", __FUNCTION__, __FILE__, __LINE__, w );*/
-			/*bkpt();*/
-			((float *)d)[i] = atof (w);
-			/*printf("%s %s:%d mehr %d\n", __FUNCTION__, __FILE__, __LINE__, (int)(((float *)d)[i]) );*/
+			((float *)d)[i] = (float)atof (w);
 			w = v = v+1;
 		}
 		break;
@@ -814,13 +807,11 @@ char *ED_ParseEdict (char *data, edict_t *ent)
 	char		keyname[256];
 	int			n;
 
-	/*printf("%s %s:%d ENTER\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
-
 	init = false;
 
 // clear it
 	if (ent != sv.edicts)	// hack
-		memset (&ent->v, 0, progs->entityfields * 4);
+		Q_memset (&ent->v, 0, progs->entityfields * 4);
 
 // go through all the dictionary pairs
 	while (1)
@@ -885,20 +876,15 @@ strcpy (temp, com_token);
 sprintf (com_token, "0 %s 0", temp);
 }
 
-		/*printf("%s %s:%d ctoken %s\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
 		if (!ED_ParseEpair ((void *)&ent->v, key, com_token))
 			Host_Error ("ED_ParseEdict: parse error");
-		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	}
 
 	if (!init)
 		ent->free = true;
 
-	/*printf("%s %s:%d EXIT\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
-
 	return data;
 }
-
 
 /*
 ================
@@ -923,7 +909,7 @@ void ED_LoadFromFile (char *data)
 	
 	ent = NULL;
 	inhibit = 0;
-	pr_global_struct->time = sv.time;
+	pr_global_struct->time = (float)sv.time;
 	
 // parse ents
 	while (1)
@@ -942,7 +928,6 @@ void ED_LoadFromFile (char *data)
 		data = ED_ParseEdict (data, ent);
 
 // remove things from different skill levels or deathmatch
-		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 		if (deathmatch.value)
 		{
 			if (((int)ent->v.spawnflags & SPAWNFLAG_NOT_DEATHMATCH))
@@ -960,7 +945,6 @@ void ED_LoadFromFile (char *data)
 			inhibit++;
 			continue;
 		}
-		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 
 //
 // immediately call spawn function
@@ -972,7 +956,6 @@ void ED_LoadFromFile (char *data)
 			ED_Free (ent);
 			continue;
 		}
-		/*printf("%s %s:%d cname %d\n", __FUNCTION__, __FILE__, __LINE__, ent->v.classname );*/
 
 	// look for the spawn function
 		func = ED_FindFunction ( pr_strings + ent->v.classname );
@@ -992,14 +975,11 @@ void ED_LoadFromFile (char *data)
 	Con_DPrintf ("%i entities inhibited\n", inhibit);
 }
 
-
 /*
 ===============
 PR_LoadProgs
 ===============
 */
-int b_break_at_load = 0;
-
 void PR_LoadProgs (void)
 {
 	int		i;
@@ -1007,49 +987,45 @@ void PR_LoadProgs (void)
 // flush the non-C variable lookup cache
 	for (i=0 ; i<GEFV_CACHESIZE ; i++)
 		gefvCache[i].field[0] = 0;
-
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
-
+	
 	CRC_Init (&pr_crc);
+	char progstr[20];
+	sprintf(progstr,"progs.dat");
+	progs = (dprograms_t *)COM_LoadHunkFile (progstr);
 
-	/*printf( "WATCH IT !!!!!!!!!!! %s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
-	b_break_at_load = 1;
-
-	progs = (dprograms_t *)COM_LoadHunkFile ("progs.dat");
 	if (!progs)
 		Sys_Error ("PR_LoadProgs: couldn't load progs.dat");
-	Con_DPrintf ("Programs occupy %iK.\n", com_filesize/1024);
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	
+	Con_DPrintf ("Programs occupy %iK.\n", com_filesize/1024);
 
 	for (i=0 ; i<com_filesize ; i++)
 		CRC_ProcessByte (&pr_crc, ((byte *)progs)[i]);
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
-
+	
 // byte swap the header
 	for (i=0 ; i<sizeof(*progs)/4 ; i++)
 		((int *)progs)[i] = LittleLong ( ((int *)progs)[i] );		
 
+	
 	if (progs->version != PROG_VERSION)
 		Sys_Error ("progs.dat has wrong version number (%i should be %i)", progs->version, PROG_VERSION);
 	if (progs->crc != PROGHEADER_CRC)
 		Sys_Error ("progs.dat system vars have been modified, progdefs.h is out of date");
 
+	
 	pr_functions = (dfunction_t *)((byte *)progs + progs->ofs_functions);
 	pr_strings = (char *)progs + progs->ofs_strings;
 	pr_globaldefs = (ddef_t *)((byte *)progs + progs->ofs_globaldefs);
 	pr_fielddefs = (ddef_t *)((byte *)progs + progs->ofs_fielddefs);
 	pr_statements = (dstatement_t *)((byte *)progs + progs->ofs_statements);
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
-
+	
 	pr_global_struct = (globalvars_t *)((byte *)progs + progs->ofs_globals);
 	pr_globals = (float *)pr_global_struct;
 	
 	pr_edict_size = progs->entityfields * 4 + sizeof (edict_t) - sizeof(entvars_t);
 	
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 // byte swap the lumps
 	for (i=0 ; i<progs->numstatements ; i++)
 	{
@@ -1059,7 +1035,7 @@ void PR_LoadProgs (void)
 		pr_statements[i].c = LittleShort(pr_statements[i].c);
 	}
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	
 	for (i=0 ; i<progs->numfunctions; i++)
 	{
 	pr_functions[i].first_statement = LittleLong (pr_functions[i].first_statement);
@@ -1070,7 +1046,7 @@ void PR_LoadProgs (void)
 	pr_functions[i].locals = LittleLong (pr_functions[i].locals);
 	}	
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	
 	for (i=0 ; i<progs->numglobaldefs ; i++)
 	{
 		pr_globaldefs[i].type = LittleShort (pr_globaldefs[i].type);
@@ -1078,7 +1054,7 @@ void PR_LoadProgs (void)
 		pr_globaldefs[i].s_name = LittleLong (pr_globaldefs[i].s_name);
 	}
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	
 	for (i=0 ; i<progs->numfielddefs ; i++)
 	{
 		pr_fielddefs[i].type = LittleShort (pr_fielddefs[i].type);
@@ -1088,10 +1064,12 @@ void PR_LoadProgs (void)
 		pr_fielddefs[i].s_name = LittleLong (pr_fielddefs[i].s_name);
 	}
 
-	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	
 	for (i=0 ; i<progs->numglobals ; i++)
 		((int *)pr_globals)[i] = LittleLong (((int *)pr_globals)[i]);
-}
+
+
+	}
 
 
 /*

@@ -48,6 +48,20 @@ typedef struct surfcache_s
 	byte				data[4];	// width*height elements
 } surfcache_t;
 
+typedef struct surfcache_FPM_s
+{
+	struct surfcache_FPM_s	*next;
+	struct surfcache_FPM_s 	**owner;		// NULL is an empty chunk of memory
+	int					lightadj[MAXLIGHTMAPS]; // checked for strobe flush
+	int					dlight;
+	int					size;		// including header
+	unsigned			width;
+	unsigned			height;		// DEBUG only needed for debug
+	fixedpoint_t		mipscale;
+	struct texture_s	*texture;	// checked for animating textures
+	byte				data[4];	// width*height elements
+} surfcache_FPM_t;
+
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct sspan_s
 {
@@ -57,60 +71,65 @@ typedef struct sspan_s
 extern cvar_t	d_subdiv16;
 
 extern float	scale_for_mip;
+extern fixedpoint_t	scale_for_mipFPM;
 
-extern qboolean		d_roverwrapped;
-extern surfcache_t	*sc_rover;
-extern surfcache_t	*d_initial_rover;
+extern qboolean			d_roverwrapped;
+extern surfcache_t		*sc_rover;
+extern surfcache_FPM_t	*sc_roverFPM;
+extern surfcache_t		*d_initial_rover;
+extern surfcache_FPM_t	*d_initial_roverFPM;
 
 extern float	d_sdivzstepu, d_tdivzstepu, d_zistepu;
 extern float	d_sdivzstepv, d_tdivzstepv, d_zistepv;
 extern float	d_sdivzorigin, d_tdivzorigin, d_ziorigin;
 
-#define CALCG_FIXED 1
-extern fixed_spans8_var_package_t s_spans8_var_package;
+extern int		d_zistepu_fxp, d_zistepv_fxp, d_ziorigin_fxp;
 
-typedef struct {
-	byte *pdest;
-	byte *pbase;
-	int i_cachewidth;
-	int count;
-	fixed16_t f16_p;
-	fixed16_t f16_stepp;
-
-	fixed16_t f16_sstart;
-	fixed16_t f16_ps;
-	fixed16_t f16_psend;
-	fixed16_t f16_steps;
-
-	fixed16_t f16_tstart;
-	fixed16_t f16_pt;
-	fixed16_t f16_ptend;
-	fixed16_t f16_stept;
-
-	fixed16_t f16_s;
-	fixed16_t f16_t;
-	int i_bbextents;
-	int i_bbextentt;
-} draw_span8_nspire_t;
+#ifdef USE_PQ_OPT3
+extern int		d_sdivzstepu_fxp, d_tdivzstepu_fxp, d_zistepu_fxp;
+extern int		d_sdivzstepv_fxp, d_tdivzstepv_fxp, d_zistepv_fxp;
+extern int		d_sdivzorigin_fxp, d_tdivzorigin_fxp, d_ziorigin_fxp;
+#endif
 
 
+#ifdef USE_PQ_OPT
+//JB:Optimization
+extern int sdivzstepu, tdivzstepu, zistepu;
+extern int sdivzstepv, tdivzstepv, zistepv;
+extern int sdivzorigin, tdivzorigin, ziorigin;
+#endif
 
-fixed16_t	sadjust, tadjust;
-fixed16_t	bbextents, bbextentt;
+extern fixedpoint_t	d_sdivzstepuFPM, d_tdivzstepuFPM, d_zistepuFPM;
+extern fixedpoint_t	d_sdivzstepvFPM, d_tdivzstepvFPM, d_zistepvFPM;
+extern fixedpoint_t	d_sdivzoriginFPM, d_tdivzoriginFPM, d_zioriginFPM;
+
+//Dan: ID Software was already using a minute amount of fixed point.  I duplicated
+//these just for consistancy in the conversion, and so the types would match.
+fixed16_t		sadjust, tadjust;
+fixed16_t		bbextents, bbextentt;
+fixedpoint_t	sadjustFPM, tadjustFPM;
+fixedpoint_t	bbextentsFPM, bbextenttFPM;
 
 
 void D_DrawSpans8 (espan_t *pspans);
+#ifdef USE_PQ_OPT
+//JB:Optimization
+void D_DrawSpans8WithZ (espan_t *pspans);
+#endif
+void D_DrawSpans8FPM (espan_t *pspans);
 void D_DrawSpans16 (espan_t *pspans);
 void D_DrawZSpans (espan_t *pspans);
 void Turbulent8 (espan_t *pspan);
 void D_SpriteDrawSpans (sspan_t *pspan);
 
 void D_DrawSkyScans8 (espan_t *pspan);
+void D_DrawSkyScans8FPM (espan_t *pspan);
 void D_DrawSkyScans16 (espan_t *pspan);
 
 void R_ShowSubDiv (void);
 void (*prealspandrawer)(void);
 surfcache_t	*D_CacheSurface (msurface_t *surface, int miplevel);
+//surfcache_FPM_t	*D_CacheSurfaceFPM (msurface_FPM_t *surface, int miplevel);
 
 extern int D_MipLevelForScale (float scale);
 
@@ -135,6 +154,7 @@ extern short	*zspantable[MAXHEIGHT];
 
 extern int		d_minmip;
 extern float	d_scalemip[3];
+extern fixedpoint_t	d_scalemipFPM[3];
 
 extern void (*d_drawspans) (espan_t *pspan);
 
