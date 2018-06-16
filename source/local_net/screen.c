@@ -844,12 +844,12 @@ int SCR_ModalMessage (char *text)
 	{
 	        key_count = -1;		// wait for a key down and up
 		Sys_SendKeyEvents ();
-	} while (key_lastpress != 'Y' && key_lastpress != 'N' && key_lastpress != 'y' && key_lastpress != 'n' && key_lastpress != K_ALT && key_lastpress != K_ESCAPE && key_lastpress != K_ENTER && key_lastpress != K_CTRL && key_lastpress != K_JOY1 && key_lastpress !=K_MOUSE1);
+	} while (key_lastpress != 'Y' && key_lastpress != 'N' && key_lastpress != 'y' && key_lastpress != 'n' && key_lastpress != K_ESCAPE && key_lastpress != K_ENTER && key_lastpress != K_JOY1 && key_lastpress !=K_MOUSE1);
 
 	scr_fullupdate = 0;
 	SCR_UpdateScreen ();
 
-	return key_lastpress == 'y'||key_lastpress == 'Y'||key_lastpress == K_ENTER||key_lastpress == K_CTRL||key_lastpress == K_JOY1||key_lastpress== K_MOUSE1;
+	return key_lastpress == 'y'||key_lastpress == 'Y'||key_lastpress == K_ENTER||key_lastpress == K_JOY1||key_lastpress== K_MOUSE1;
 }
 
 

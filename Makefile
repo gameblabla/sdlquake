@@ -28,7 +28,7 @@ LIBS +=
 
 NET_FOLDER = local_net
 
-CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
+CFLAGS +=  -Isource/$(NET_FOLDER) -Isource -Isource/pc
 CFILES = 			source/$(NET_FOLDER)/host.c \
 					source/$(NET_FOLDER)/menu.c \
 					source/$(NET_FOLDER)/screen.c \
@@ -39,7 +39,11 @@ CFILES = 			source/$(NET_FOLDER)/host.c \
 					source/$(NET_FOLDER)/net_udp.c \
 					source/$(NET_FOLDER)/net_bsd.c
 
-CFILES	+=			source/cd_null.c \
+CFILES	+=			source/pc/pr_cmds.c \
+					source/pc/pr_edict.c \
+					source/pc/pr_exec.c \
+					source/pc/sv_main.c \
+					source/cd_null.c \
 					source/vid_sdl.c \
 					source/snd_sdl.c \
 					source/sys_sdl.c \
@@ -72,9 +76,6 @@ CFILES	+=			source/cd_null.c \
 					source/mathlib.c \
 					source/model.c \
 					source/nonintel.c \
-					source/pr_cmds.c \
-					source/pr_edict.c \
-					source/pr_exec.c \
 					source/r_aclip.c \
 					source/r_alias.c \
 					source/r_bsp.c \
@@ -92,7 +93,6 @@ CFILES	+=			source/cd_null.c \
 					source/sbar.c \
 					source/snd_dma.c \
 					source/snd_mix.c \
-					source/sv_main.c \
 					source/sv_move.c \
 					source/sv_phys.c \
 					source/sv_user.c \

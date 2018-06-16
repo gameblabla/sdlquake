@@ -12,4 +12,6 @@ source/*.o
 lastpc_working/
 source/net/*.o
 source/local_net/*.o
+source/portable/*.o
+source/pc/*.o
 core

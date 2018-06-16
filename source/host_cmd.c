@@ -1530,30 +1530,126 @@ void Host_Give_f (void)
    case '7':
    case '8':
    case '9':
-      if (t[0] >= '2')
+      // MED 01/04/97 added hipnotic give stuff
+      if (r2_mod == 1)
+      {
+         if (t[0] == '6')
+         {
+            if (t[1] == 'a')
+               sv_player->v.items = (float)((int)sv_player->v.items | HIT_PROXIMITY_GUN);
+            else
+               sv_player->v.items = (float)((int)sv_player->v.items | IT_GRENADE_LAUNCHER);
+         }
+         else if (t[0] == '9')
+            sv_player->v.items = (float)((int)sv_player->v.items | HIT_LASER_CANNON);
+         else if (t[0] == '0')
+            sv_player->v.items = (float)((int)sv_player->v.items | HIT_MJOLNIR);
+         else if (t[0] >= '2')
             sv_player->v.items = (float)((int)sv_player->v.items | (IT_SHOTGUN << (t[0] - '2')));
+      }
+      else
+      {
+         if (t[0] >= '2')
+            sv_player->v.items = (float)((int)sv_player->v.items | (IT_SHOTGUN << (t[0] - '2')));
+      }
 		break;
 	
     case 's':
+		if (r2_mod == 2)
+		{
+	        val = GetEdictFieldValue(sv_player, "ammo_shells1");
+		    if (val)
+			    val->_float = (float)v;
+		}
+
         sv_player->v.ammo_shells = (float)v;
         break;		
     case 'n':
-		sv_player->v.ammo_nails = (float)v;
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_nails1");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon <= IT_LIGHTNING)
+					sv_player->v.ammo_nails = (float)v;
+			}
+		}
+		else
+		{
+			sv_player->v.ammo_nails = (float)v;
+		}
         break;		
     case 'l':
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_lava_nails");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_nails = (float)v;
+			}
+		}
         break;
     case 'r':
-		sv_player->v.ammo_rockets = (float)v;
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_rockets1");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon <= IT_LIGHTNING)
+					sv_player->v.ammo_rockets = (float)v;
+			}
+		}
+		else
+		{
+			sv_player->v.ammo_rockets = (float)v;
+		}
         break;		
     case 'm':
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_multi_rockets");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_rockets = (float)v;
+			}
+		}
         break;		
     case 'h':
         sv_player->v.health = (float)v;
         break;		
     case 'c':
-		sv_player->v.ammo_cells = (float)v;
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_cells1");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon <= IT_LIGHTNING)
+					sv_player->v.ammo_cells = (float)v;
+			}
+		}
+		else
+		{
+			sv_player->v.ammo_cells = (float)v;
+		}
         break;		
     case 'p':
+		if (r2_mod == 2)
+		{
+			val = GetEdictFieldValue(sv_player, "ammo_plasma");
+			if (val)
+			{
+				val->_float = (float)v;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_cells = (float)v;
+			}
+		}
         break;		
     }
 }

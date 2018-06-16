@@ -25,10 +25,11 @@ int min_vid_width = 320;
 int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 byte *VGA_pagebase;
 
-static qboolean mouse_avail;
-static float   mouse_x, mouse_y;
-static int mouse_oldbuttonstate = 0;
+/* static qboolean mouse_avail;
+static float mouse_x, mouse_y;
+static int mouse_oldbuttonstate = 0; */
 
+//vars for mlook
 float start_yaw;
 float yaw_modifier=0;
 

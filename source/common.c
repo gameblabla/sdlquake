@@ -21,6 +21,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
+/*
+//Dan
+#include "../zlib/zlib.h"
+#include <windows.h>
+#include <Projects.h>	//For Compact Flash searching
+*/
 #define NUM_SAFE_ARGVS  7
 
 static char     *largv[MAX_NUM_ARGVS + NUM_SAFE_ARGVS + 1];
@@ -54,7 +60,7 @@ char	**com_argv;
 char	com_cmdline[CMDLINE_LENGTH];
 
 qboolean		standard_quake = true, rogue, hipnotic;
-
+/*
 // this graphic needs to be in the pak file to use registered features
 unsigned short pop[] =
 {
@@ -75,7 +81,7 @@ unsigned short pop[] =
 ,0x0000,0x0000,0x0000,0x0000,0x6500,0x0000,0x0000,0x0000
 ,0x0000,0x0000,0x0000,0x0000,0x6400,0x0000,0x0000,0x0000
 };
-
+*/
 /*
 
 
@@ -137,6 +143,7 @@ void InsertLinkAfter (link_t *l, link_t *after)
 
 void Q_memset (void *dest, int fill, int count)
 {
+  
 	int             i;
 	
 	if ( (((long)dest | count) & 3) == 0)
@@ -149,10 +156,13 @@ void Q_memset (void *dest, int fill, int count)
 	else
 		for (i=0 ; i<count ; i++)
 			((byte *)dest)[i] = fill;
+  
+
 }
 
 void Q_memcpy (void *dest, void *src, int count)
 {
+  /*
 	int             i;
 	
 	if (( ( (long)dest | (long)src | count) & 3) == 0 )
@@ -164,10 +174,13 @@ void Q_memcpy (void *dest, void *src, int count)
 	else
 		for (i=0 ; i<count ; i++)
 			((byte *)dest)[i] = ((byte *)src)[i];
+  */
+  memcpy(dest,src,count);
 }
 
 int Q_memcmp (void *m1, void *m2, int count)
 {
+  
 	while(count)
 	{
 		count--;
@@ -175,6 +188,8 @@ int Q_memcmp (void *m1, void *m2, int count)
 			return -1;
 	}
 	return 0;
+  
+
 }
 
 void Q_strcpy (char *dest, char *src)
@@ -381,7 +396,7 @@ float Q_atof (char *str)
 			else if (c >= 'A' && c <= 'F')
 				val = (val*16) + c - 'A' + 10;
 			else
-				return val*sign;
+				return (float)(val*sign);
 		}
 	}
 	
@@ -390,7 +405,7 @@ float Q_atof (char *str)
 //
 	if (str[0] == '\'')
 	{
-		return sign * str[1];
+		return (float)(sign * str[1]);
 	}
 	
 //
@@ -413,27 +428,26 @@ float Q_atof (char *str)
 	}
 
 	if (decimal == -1)
-		return val*sign;
+		return (float)(val*sign);
 	while (total > decimal)
 	{
 		val /= 10;
 		total--;
 	}
 	
-	return val*sign;
+	return (float)(val*sign);
+}
+
+void Q_strncpyz (char *dest, char *src, size_t size) {
+	strncpy (dest, src, size - 1);
+	dest[size-1] = 0;
 }
 
 /*
 ============================================================================
-
 					BYTE ORDER FUNCTIONS
-
 ============================================================================
 */
-
-#ifdef SDL
-#include "SDL_byteorder.h"
-#endif
 
 qboolean        bigendien;
 
@@ -590,6 +604,7 @@ void MSG_WriteCoord (sizebuf_t *sb, float f)
 	MSG_WriteShort (sb, (int)(f*8));
 }
 
+
 void MSG_WriteAngle (sizebuf_t *sb, float f)
 {
 	MSG_WriteByte (sb, ((int)f*256/360) & 255);
@@ -720,12 +735,12 @@ char *MSG_ReadString (void)
 
 float MSG_ReadCoord (void)
 {
-	return MSG_ReadShort() * (1.0/8);
+	return (float)(MSG_ReadShort() * (1.0/8));
 }
 
 float MSG_ReadAngle (void)
 {
-	return MSG_ReadChar() * (360.0/256);
+	return (float)(MSG_ReadChar() * (360.0/256));
 }
 
 
@@ -866,7 +881,7 @@ void COM_FileBase (char *in, char *out)
 	while (s != in && *s != '.')
 		s--;
 	
-	for (s2 = s ; s2 > in && *s2 != '/' ; s2--)
+	for (s2 = s ; *s2 && *s2 != '/' ; s2--)
 	;
 	
 	if (s-s2 < 2)
@@ -1018,30 +1033,19 @@ being registered.
 */
 void COM_CheckRegistered (void)
 {
-	int             h;
-	unsigned short  check[128];
-	int                     i;
-
+	/* int h;
 	COM_OpenFile("gfx/pop.lmp", &h);
 	static_registered = 0;
 
-	if (h == -1)
-	{
-#if WINDED
-	Sys_Error ("This dedicated server requires a full registered copy of Quake");
-#endif
+	if (h == -1) {
 		Con_Printf ("Playing shareware version.\n");
+
 		if (com_modified)
 			Sys_Error ("You must have the registered version to use modified games");
 		return;
 	}
 
-	Sys_FileRead (h, check, sizeof(check));
-	COM_CloseFile (h);
-	
-	for (i=0 ; i<128 ; i++)
-		if (pop[i] != (unsigned short)BigShort (check[i]))
-			Sys_Error ("Corrupted data file.");
+	COM_CloseFile (h); */
 	
 	Cvar_Set ("cmdline", com_cmdline);
 	Cvar_Set ("registered", "1");
@@ -1058,20 +1062,17 @@ void COM_Path_f (void);
 COM_InitArgv
 ================
 */
-void COM_InitArgv (int argc, char **argv)
-{
+void COM_InitArgv (int argc, char **argv) {
 	qboolean        safe;
 	int             i, j, n;
 
 // reconstitute the command line for the cmdline externally visible cvar
 	n = 0;
 
-	for (j=0 ; (j<MAX_NUM_ARGVS) && (j< argc) ; j++)
-	{
+	for (j=0 ; (j<MAX_NUM_ARGVS) && (j< argc) ; j++) {
 		i = 0;
 
-		while ((n < (CMDLINE_LENGTH - 1)) && argv[j][i])
-		{
+		while ((n < (CMDLINE_LENGTH - 1)) && argv[j][i]) {
 			com_cmdline[n++] = argv[j][i++];
 		}
 
@@ -1085,20 +1086,16 @@ void COM_InitArgv (int argc, char **argv)
 
 	safe = false;
 
-	for (com_argc=0 ; (com_argc<MAX_NUM_ARGVS) && (com_argc < argc) ;
-		 com_argc++)
-	{
+	for (com_argc=0 ; (com_argc<MAX_NUM_ARGVS) && (com_argc < argc) ; com_argc++) {
 		largv[com_argc] = argv[com_argc];
 		if (!Q_strcmp ("-safe", argv[com_argc]))
 			safe = true;
 	}
 
-	if (safe)
-	{
+	if (safe) {
 	// force all the safe-mode switches. Note that we reserved extra space in
 	// case we need to add these, so we don't need an overflow check
-		for (i=0 ; i<NUM_SAFE_ARGVS ; i++)
-		{
+		for (i=0 ; i<NUM_SAFE_ARGVS ; i++) {
 			largv[com_argc] = safeargvs[i];
 			com_argc++;
 		}
@@ -1107,19 +1104,16 @@ void COM_InitArgv (int argc, char **argv)
 	largv[com_argc] = argvdummy;
 	com_argv = largv;
 
-	if (COM_CheckParm ("-rogue"))
-	{
+	if (COM_CheckParm ("-rogue")) {
 		rogue = true;
 		standard_quake = false;
 	}
 
-	if (COM_CheckParm ("-hipnotic"))
-	{
+	if (COM_CheckParm ("-hipnotic")) {
 		hipnotic = true;
 		standard_quake = false;
 	}
 }
-
 
 /*
 ================
@@ -1131,12 +1125,7 @@ void COM_Init (char *basedir)
 	byte    swaptest[2] = {1,0};
 
 // set the byte swapping variables in a portable manner 
-#ifdef SDL
-	// This is necessary because egcs 1.1.1 mis-compiles swaptest with -O2
-	if ( SDL_BYTEORDER == SDL_LIL_ENDIAN )
-#else
 	if ( *(short *)swaptest == 1)
-#endif
 	{
 		bigendien = false;
 		BigShort = ShortSwap;
@@ -1213,7 +1202,6 @@ int     com_filesize;
 //
 // in memory
 //
-
 typedef struct
 {
 	char    name[MAX_QPATH];
@@ -1264,15 +1252,12 @@ COM_Path_f
 
 ============
 */
-void COM_Path_f (void)
-{
+void COM_Path_f (void) {
 	searchpath_t    *s;
 	
 	Con_Printf ("Current search path:\n");
-	for (s=com_searchpaths ; s ; s=s->next)
-	{
-		if (s->pack)
-		{
+	for (s=com_searchpaths ; s ; s=s->next) {
+		if (s->pack) {
 			Con_Printf ("%s (%i files)\n", s->pack->filename, s->pack->numfiles);
 		}
 		else
@@ -1304,6 +1289,8 @@ void COM_WriteFile (char *filename, void *data, int len)
 	Sys_Printf ("COM_WriteFile: %s\n", name);
 	Sys_FileWrite (handle, data, len);
 	Sys_FileClose (handle);
+	sync();
+
 }
 
 
@@ -1361,6 +1348,7 @@ void COM_CopyFile (char *netpath, char *cachepath)
 
 	Sys_FileClose (in);
 	Sys_FileClose (out);    
+	sync();
 }
 
 /*
@@ -1371,6 +1359,7 @@ Finds the file in the search path.
 Sets com_filesize and one of handle or file
 ===========
 */
+
 int COM_FindFile (char *filename, int *handle, FILE **file)
 {
 	searchpath_t    *search;
@@ -1391,7 +1380,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 	search = com_searchpaths;
 	if (proghack)
 	{	// gross hack to use quake 1 progs with quake 2 maps
-		if (!strcmp(filename, "progs.dat"))
+		if (!Q_strcmp(filename, "progs.dat"))
 			search = search->next;
 	}
 
@@ -1403,9 +1392,9 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 		// look through all the pak file elements
 			pak = search->pack;
 			for (i=0 ; i<pak->numfiles ; i++)
-				if (!strcmp (pak->files[i].name, filename))
+				if (!Q_strcmp (pak->files[i].name, filename))
 				{       // found it!
-					Sys_Printf ("PackFile: %s : %s\n",pak->filename, filename);
+				  //				  Sys_Printf ("PackFile: %s : %s\n",pak->filename, filename);
 					if (handle)
 					{
 						*handle = pak->handle;
@@ -1413,6 +1402,9 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 					}
 					else
 					{       // open a new file on the pakfile
+						//Dan: Compression added
+					  //	(gzFile)(*file)=gzopen(pak->filename, "rb");
+					  //	if (*file) gzseek((gzFile)*file, pak->files[i].filepos, SEEK_SET);
 						*file = fopen (pak->filename, "rb");
 						if (*file)
 							fseek (*file, pak->files[i].filepos, SEEK_SET);
@@ -1435,7 +1427,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 			findtime = Sys_FileTime (netpath);
 			if (findtime == -1)
 				continue;
-				
+				#if 0
 		// see if the file needs to be updated in the cache
 			if (!com_cachedir[0])
 				strcpy (cachepath, netpath);
@@ -1447,7 +1439,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 				else
 					sprintf (cachepath,"%s%s", com_cachedir, netpath+2);
 #else
-				sprintf (cachepath,"%s/%s", com_cachedir, netpath);
+				sprintf (cachepath,"%s%s", com_cachedir, netpath);
 #endif
 
 				cachetime = Sys_FileTime (cachepath);
@@ -1456,7 +1448,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 					COM_CopyFile (netpath, cachepath);
 				strcpy (netpath, cachepath);
 			}	
-
+#endif
 			Sys_Printf ("FindFile: %s\n",netpath);
 			com_filesize = Sys_FileOpenRead (netpath, &i);
 			if (handle)
@@ -1539,6 +1531,8 @@ Allways appends a 0 byte.
 cache_user_t *loadcache;
 byte    *loadbuf;
 int             loadsize;
+//char    base[32];
+
 byte *COM_LoadFile (char *path, int usehunk)
 {
 	int             h;
@@ -1549,13 +1543,15 @@ byte *COM_LoadFile (char *path, int usehunk)
 	buf = NULL;     // quiet compiler warning
 
 // look for it in the filesystem or pack files
+
 	len = COM_OpenFile (path, &h);
-	if (h == -1)
+	if (h == -1 ) {
 		return NULL;
-	
+	    }
+
 // extract the filename base name for hunk tag
 	COM_FileBase (path, base);
-	
+
 	if (usehunk == 1)
 		buf = Hunk_AllocName (len+1, base);
 	else if (usehunk == 2)
@@ -1625,8 +1621,7 @@ Loads the header and directory, adding the files at the beginning
 of the list so they override previous pack files.
 =================
 */
-pack_t *COM_LoadPackFile (char *packfile)
-{
+pack_t *COM_LoadPackFile (char *packfile) {
 	dpackheader_t   header;
 	int                             i;
 	packfile_t              *newfiles;
@@ -1638,7 +1633,7 @@ pack_t *COM_LoadPackFile (char *packfile)
 
 	if (Sys_FileOpenRead (packfile, &packhandle) == -1)
 	{
-//              Con_Printf ("Couldn't open %s\n", packfile);
+              Con_Printf ("Couldn't open %s\n", packfile);
 		return NULL;
 	}
 	Sys_FileRead (packhandle, (void *)&header, sizeof(header));
@@ -1658,6 +1653,8 @@ pack_t *COM_LoadPackFile (char *packfile)
 
 	newfiles = Hunk_AllocName (numpackfiles * sizeof(packfile_t), "packfile");
 
+//	info=malloc(sizeof(dpackfile_t)*MAX_FILES_IN_PACK);
+
 	Sys_FileSeek (packhandle, header.dirofs);
 	Sys_FileRead (packhandle, (void *)info, header.dirlen);
 
@@ -1674,7 +1671,12 @@ pack_t *COM_LoadPackFile (char *packfile)
 		strcpy (newfiles[i].name, info[i].name);
 		newfiles[i].filepos = LittleLong(info[i].filepos);
 		newfiles[i].filelen = LittleLong(info[i].filelen);
+		if (strcmp(newfiles[i].name,"gfx.wad")==0) {
+		  printf("%s pos:%d len:%d",newfiles[i].name,newfiles[i].filepos,newfiles[i].filelen);
+		}
 	}
+
+	// free(info);
 
 	pack = Hunk_Alloc (sizeof (pack_t));
 	strcpy (pack->filename, packfile);
@@ -1682,6 +1684,7 @@ pack_t *COM_LoadPackFile (char *packfile)
 	pack->numfiles = numpackfiles;
 	pack->files = newfiles;
 	
+
 	Con_Printf ("Added packfile %s (%i files)\n", packfile, numpackfiles);
 	return pack;
 }
@@ -1695,42 +1698,48 @@ Sets com_gamedir, adds the directory to the head of the path,
 then loads and adds pak1.pak pak2.pak ... 
 ================
 */
-void COM_AddGameDirectory (char *dir)
+int COM_AddGameDirectory (char *dir)
 {
-	int                             i;
-	searchpath_t    *search;
-	pack_t                  *pak;
-	char                    pakfile[MAX_OSPATH];
+	int i;
+	searchpath_t *search;
+	pack_t *pak;
+	char pakfile[MAX_OSPATH];
+	int success=0;
+	int loadpak = 0;
 
-	strcpy (com_gamedir, dir);
+	Q_strcpy (com_gamedir, dir);
 
 //
 // add the directory to the search path
 //
 	search = Hunk_Alloc (sizeof(searchpath_t));
-	strcpy (search->filename, dir);
+	Q_strcpy (search->filename, dir);
 	search->next = com_searchpaths;
 	com_searchpaths = search;
 
 //
 // add any pak files in the format pak0.pak pak1.pak, ...
 //
-	for (i=0 ; ; i++)
-	{
+	for (i = 0; ;i++) {
 		sprintf (pakfile, "%s/pak%i.pak", dir, i);
 		pak = COM_LoadPackFile (pakfile);
-		if (!pak)
-			break;
+
+		if (!pak) {
+		  break;
+		} else {
+			success = 1;
+		}
+
 		search = Hunk_Alloc (sizeof(searchpath_t));
 		search->pack = pak;
 		search->next = com_searchpaths;
-		com_searchpaths = search;               
+		com_searchpaths = search;
 	}
 
 //
 // add the contents of the parms.txt file to the end of the command line
 //
-
+	return success;
 }
 
 /*
@@ -1743,11 +1752,18 @@ void COM_InitFilesystem (void)
 	int             i, j;
 	char    basedir[MAX_OSPATH];
 	searchpath_t    *search;
+	char	allSearchDirs[10][MAX_OSPATH];
+	int		allSearchDirsCount=0;
+	int		loop;
 
 //
 // -basedir <path>
 // Overrides the system supplied base directory (under GAMENAME)
-//
+
+//Dan East: Added support for searching multiple directories for wad files.
+//Directory names are placed in the allSearchDirs array, with allSearchDirsCount
+//set to indicate the number of valid entries
+
 	i = COM_CheckParm ("-basedir");
 	if (i && i < com_argc-1)
 		strcpy (basedir, com_argv[i+1]);
@@ -1761,6 +1777,7 @@ void COM_InitFilesystem (void)
 		if ((basedir[j-1] == '\\') || (basedir[j-1] == '/'))
 			basedir[j-1] = 0;
 	}
+
 
 //
 // -cachedir <path>
@@ -1783,12 +1800,12 @@ void COM_InitFilesystem (void)
 //
 // start up with GAMENAME by default (id1)
 //
-	COM_AddGameDirectory (va("%s/"GAMENAME, basedir) );
+	COM_AddGameDirectory (va("%s/id1", basedir) );
 
-	if (COM_CheckParm ("-rogue"))
-		COM_AddGameDirectory (va("%s/rogue", basedir) );
+	/* if (COM_CheckParm ("-rogue"))
+	  COM_AddGameDirectory (va("%s/rogue", basedir) );
 	if (COM_CheckParm ("-hipnotic"))
-		COM_AddGameDirectory (va("%s/hipnotic", basedir) );
+	  COM_AddGameDirectory (va("%s/hipnotic", basedir) ); */
 
 //
 // -game <gamedir>

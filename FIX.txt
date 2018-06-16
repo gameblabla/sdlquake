@@ -1,0 +1,8 @@
+See both source/pc & source/portable.
+source/pc source files work on PC but they don't save properly.
+Using the files from source/portable will make it crash when trying to start a gaùme.
+
+Using the files from source/pc will break saves on both platforms (RS97 & PC).
+However, using the files from source/portable will make the saves work on the RS-97, except that starting a game
+with those crashes the game on PC.
+WHY ? I've wasted so much time with this bullshit.

@@ -196,6 +196,57 @@ void Sbar_Init (void)
 	sb_sbar = Draw_PicFromWad ("sbar");
 	sb_ibar = Draw_PicFromWad ("ibar");
 	sb_scorebar = Draw_PicFromWad ("scorebar");
+
+//MED 01/04/97 added new hipnotic weapons
+	if (r2_mod == 1)
+	{
+	  hsb_weapons[0][0] = Draw_PicFromWad ("inv_laser");
+	  hsb_weapons[0][1] = Draw_PicFromWad ("inv_mjolnir");
+	  hsb_weapons[0][2] = Draw_PicFromWad ("inv_gren_prox");
+	  hsb_weapons[0][3] = Draw_PicFromWad ("inv_prox_gren");
+	  hsb_weapons[0][4] = Draw_PicFromWad ("inv_prox");
+
+	  hsb_weapons[1][0] = Draw_PicFromWad ("inv2_laser");
+	  hsb_weapons[1][1] = Draw_PicFromWad ("inv2_mjolnir");
+	  hsb_weapons[1][2] = Draw_PicFromWad ("inv2_gren_prox");
+	  hsb_weapons[1][3] = Draw_PicFromWad ("inv2_prox_gren");
+	  hsb_weapons[1][4] = Draw_PicFromWad ("inv2_prox");
+
+	  for (i=0 ; i<5 ; i++)
+	  {
+		 hsb_weapons[2+i][0] = Draw_PicFromWad (va("inva%i_laser",i+1));
+		 hsb_weapons[2+i][1] = Draw_PicFromWad (va("inva%i_mjolnir",i+1));
+		 hsb_weapons[2+i][2] = Draw_PicFromWad (va("inva%i_gren_prox",i+1));
+		 hsb_weapons[2+i][3] = Draw_PicFromWad (va("inva%i_prox_gren",i+1));
+		 hsb_weapons[2+i][4] = Draw_PicFromWad (va("inva%i_prox",i+1));
+	  }
+
+	  hsb_items[0] = Draw_PicFromWad ("sb_wsuit");
+	  hsb_items[1] = Draw_PicFromWad ("sb_eshld");
+	}
+
+	if (r2_mod == 2)
+	{
+		rsb_invbar[0] = Draw_PicFromWad ("r_invbar1");
+		rsb_invbar[1] = Draw_PicFromWad ("r_invbar2");
+
+		rsb_weapons[0] = Draw_PicFromWad ("r_lava");
+		rsb_weapons[1] = Draw_PicFromWad ("r_superlava");
+		rsb_weapons[2] = Draw_PicFromWad ("r_gren");
+		rsb_weapons[3] = Draw_PicFromWad ("r_multirock");
+		rsb_weapons[4] = Draw_PicFromWad ("r_plasma");
+
+		rsb_items[0] = Draw_PicFromWad ("r_shield1");
+        rsb_items[1] = Draw_PicFromWad ("r_agrav1");
+
+// PGM 01/19/97 - team color border
+        rsb_teambord = Draw_PicFromWad ("r_teambord");
+// PGM 01/19/97 - team color border
+
+		rsb_ammo[0] = Draw_PicFromWad ("r_ammolava");
+		rsb_ammo[1] = Draw_PicFromWad ("r_ammomulti");
+		rsb_ammo[2] = Draw_PicFromWad ("r_ammoplasma");
+	}
 }
 
 
@@ -502,7 +553,17 @@ void Sbar_DrawInventory (void)
 	float	time;
 	int		flashon;
 
-	Sbar_DrawPic (0, -24, sb_ibar);
+	if (r2_mod == 2)
+	{
+		if ( cl.stats[STAT_ACTIVEWEAPON] >= RIT_LAVA_NAILGUN )
+			Sbar_DrawPic (0, -24, rsb_invbar[0]);
+		else
+			Sbar_DrawPic (0, -24, rsb_invbar[1]);
+	}
+	else
+	{
+		Sbar_DrawPic (0, -24, sb_ibar);
+	}
 
 // weapons
 	for (i=0 ; i<7 ; i++)
@@ -525,6 +586,78 @@ void Sbar_DrawInventory (void)
 
 			if (flashon > 1)
 				sb_updates = 0;		// force update to remove flash
+		}
+	}
+
+// MED 01/04/97
+// hipnotic weapons
+    if (r2_mod == 1)
+    {
+      int grenadeflashing=0;
+      for (i=0 ; i<4 ; i++)
+      {
+         if (cl.items & (1<<hipweapons[i]) )
+         {
+            time = cl.item_gettime[hipweapons[i]];
+            flashon = (int)((cl.time - time)*10);
+            if (flashon >= 10)
+            {
+               if ( cl.stats[STAT_ACTIVEWEAPON] == (1<<hipweapons[i])  )
+                  flashon = 1;
+               else
+                  flashon = 0;
+            }
+            else
+               flashon = (flashon%5) + 2;
+
+            // check grenade launcher
+            if (i==2)
+            {
+               if (cl.items & HIT_PROXIMITY_GUN)
+               {
+                  if (flashon)
+                  {
+                     grenadeflashing = 1;
+                     Sbar_DrawPic (96, -16, hsb_weapons[flashon][2]);
+                  }
+               }
+            }
+            else if (i==3)
+            {
+               if (cl.items & (IT_SHOTGUN<<4))
+               {
+                  if (flashon && !grenadeflashing)
+                  {
+                     Sbar_DrawPic (96, -16, hsb_weapons[flashon][3]);
+                  }
+                  else if (!grenadeflashing)
+                  {
+                     Sbar_DrawPic (96, -16, hsb_weapons[0][3]);
+                  }
+               }
+               else
+                  Sbar_DrawPic (96, -16, hsb_weapons[flashon][4]);
+            }
+            else
+               Sbar_DrawPic (176 + (i*24), -16, hsb_weapons[flashon][i]);
+            if (flashon > 1)
+               sb_updates = 0;      // force update to remove flash
+         }
+      }
+    }
+
+	if (r2_mod == 2)
+	{
+    // check for powered up weapon.
+		if ( cl.stats[STAT_ACTIVEWEAPON] >= RIT_LAVA_NAILGUN )
+		{
+			for (i=0;i<5;i++)
+			{
+				if (cl.stats[STAT_ACTIVEWEAPON] == (RIT_LAVA_NAILGUN << i))
+				{
+					Sbar_DrawPic ((i+2)*24, -16, rsb_weapons[i]);
+				}
+			}
 		}
 	}
 
@@ -561,7 +694,51 @@ void Sbar_DrawInventory (void)
          if (time && time > cl.time - 2)
             sb_updates = 0;
       }
+   //MED 01/04/97 added hipnotic items
+   // hipnotic items
+   if (r2_mod == 1)
+   {
+      for (i=0 ; i<2 ; i++)
+         if (cl.items & (1<<(24+i)))
+         {
+            time = cl.item_gettime[24+i];
+            if (time && time > cl.time - 2 && flashon )
+            {  // flash frame
+               sb_updates = 0;
+            }
+            else
+            {
+               Sbar_DrawPic (288 + i*16, -16, hsb_items[i]);
+            }
+            if (time && time > cl.time - 2)
+               sb_updates = 0;
+         }
+   }
 
+	if (r2_mod == 2)
+	{
+	// new rogue items
+		for (i=0 ; i<2 ; i++)
+		{
+			if (cl.items & (1<<(29+i)))
+			{
+				time = cl.item_gettime[29+i];
+
+				if (time &&	time > cl.time - 2 && flashon )
+				{	// flash frame
+					sb_updates = 0;
+				}
+				else
+				{
+					Sbar_DrawPic (288 + i*16, -16, rsb_items[i]);
+				}
+
+				if (time &&	time > cl.time - 2)
+					sb_updates = 0;
+			}
+		}
+	}
+	else
 	{
 	// sigils
 		for (i=0 ; i<4 ; i++)
@@ -781,7 +958,15 @@ void Sbar_Draw (void)
 	{
 		Sbar_DrawPic (0, 0, sb_sbar);
 
-
+   // keys (hipnotic only)
+      //MED 01/04/97 moved keys here so they would not be overwritten
+      if (r2_mod == 1)
+      {
+         if (cl.items & IT_KEY1)
+            Sbar_DrawPic (209, 3, sb_items[0]);
+         if (cl.items & IT_KEY2)
+            Sbar_DrawPic (209, 12, sb_items[1]);
+      }
    // armor
 		if (cl.items & IT_INVULNERABILITY)
 		{
@@ -790,6 +975,19 @@ void Sbar_Draw (void)
 		}
 		else
 		{
+			if (r2_mod == 2)
+			{
+				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3,
+								cl.stats[STAT_ARMOR] <= 25);
+				if (cl.items & RIT_ARMOR3)
+					Sbar_DrawPic (0, 0, sb_armor[2]);
+				else if (cl.items & RIT_ARMOR2)
+					Sbar_DrawPic (0, 0, sb_armor[1]);
+				else if (cl.items & RIT_ARMOR1)
+					Sbar_DrawPic (0, 0, sb_armor[0]);
+			}
+			else
+			{
 				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3
 				, cl.stats[STAT_ARMOR] <= 25);
 				if (cl.items & IT_ARMOR3)
@@ -798,6 +996,7 @@ void Sbar_Draw (void)
 					Sbar_DrawPic (0, 0, sb_armor[1]);
 				else if (cl.items & IT_ARMOR1)
 					Sbar_DrawPic (0, 0, sb_armor[0]);
+			}
 		}
 
 	// face
@@ -808,6 +1007,25 @@ void Sbar_Draw (void)
 		, cl.stats[STAT_HEALTH] <= 25);
 
 	// ammo icon
+		if (r2_mod == 2)
+		{
+			if (cl.items & RIT_SHELLS)
+				Sbar_DrawPic (224, 0, sb_ammo[0]);
+			else if (cl.items & RIT_NAILS)
+				Sbar_DrawPic (224, 0, sb_ammo[1]);
+			else if (cl.items & RIT_ROCKETS)
+				Sbar_DrawPic (224, 0, sb_ammo[2]);
+			else if (cl.items & RIT_CELLS)
+				Sbar_DrawPic (224, 0, sb_ammo[3]);
+			else if (cl.items & RIT_LAVA_NAILS)
+				Sbar_DrawPic (224, 0, rsb_ammo[0]);
+			else if (cl.items & RIT_PLASMA_AMMO)
+				Sbar_DrawPic (224, 0, rsb_ammo[1]);
+			else if (cl.items & RIT_MULTI_ROCKETS)
+				Sbar_DrawPic (224, 0, rsb_ammo[2]);
+		}
+		else
+		{
 			if (cl.items & IT_SHELLS)
 				Sbar_DrawPic (224, 0, sb_ammo[0]);
 			else if (cl.items & IT_NAILS)
@@ -816,6 +1034,7 @@ void Sbar_Draw (void)
 				Sbar_DrawPic (224, 0, sb_ammo[2]);
 			else if (cl.items & IT_CELLS)
 				Sbar_DrawPic (224, 0, sb_ammo[3]);
+		}
 
 		Sbar_DrawNum (248, 0, cl.stats[STAT_AMMO], 3,
 					  cl.stats[STAT_AMMO] <= 10);

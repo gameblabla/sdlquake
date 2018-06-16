@@ -301,7 +301,6 @@ void M_Main_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		key_dest = key_game;
 		m_state = m_none;
 		cls.demonum = m_save_demonum;
@@ -322,7 +321,6 @@ void M_Main_Key (int key)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_entersound = true;
 
 		switch (m_main_cursor)
@@ -386,7 +384,6 @@ void M_SinglePlayer_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Main_f ();
 		break;
 
@@ -403,7 +400,6 @@ void M_SinglePlayer_Key (int key)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_entersound = true;
 
 		switch (m_singleplayer_cursor)
@@ -528,12 +524,10 @@ void M_Load_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_SinglePlayer_f ();
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		S_LocalSound ("misc/menu2.wav");
 		if (!loadable[load_cursor])
 			return;
@@ -572,12 +566,10 @@ void M_Save_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_SinglePlayer_f ();
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_state = m_none;
 		key_dest = key_game;
 		Cbuf_AddText (va("save s%i\n", load_cursor));
@@ -668,7 +660,6 @@ void M_MultiPlayer_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Main_f ();
 		break;
 
@@ -685,7 +676,6 @@ void M_MultiPlayer_Key (int key)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_entersound = true;
 		switch (m_multiplayer_cursor)
 		{
@@ -781,7 +771,6 @@ void M_Setup_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_MultiPlayer_f ();
 		break;
 
@@ -820,7 +809,6 @@ forward:
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 /*
 	  if (setup_cursor == 0 || setup_cursor == 1)
 			return;
@@ -999,7 +987,6 @@ again:
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_MultiPlayer_f ();
 		break;
 
@@ -1016,7 +1003,6 @@ again:
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_entersound = true;
 
 		switch (m_net_cursor)
@@ -1262,12 +1248,10 @@ void M_Options_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Main_f ();
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		m_entersound = true;
 		switch (options_cursor)
 		{
@@ -1483,7 +1467,6 @@ void M_Keys_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Options_f ();
 		break;
 
@@ -1504,7 +1487,6 @@ void M_Keys_Key (int k)
 		break;
 
 	case K_ENTER:		// go into bind mode
-	case K_CTRL:
 		M_FindKeysForCommand (bindnames[keys_cursor][0], keys);
 		S_LocalSound ("misc/menu2.wav");
 		if (keys[1] != -1)
@@ -1570,7 +1552,6 @@ void M_Help_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Main_f ();
 		break;
 
@@ -1662,7 +1643,6 @@ void M_Quit_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 	case 'n':
 	case 'N':
 		if (wasInMenus)
@@ -1679,8 +1659,6 @@ void M_Quit_Key (int key)
 
 	case 'Y':
 	case 'y':
-	case K_ENTER:
-	case K_CTRL:
 		key_dest = key_console;
 		Host_Quit_f ();
 		break;
@@ -1807,7 +1785,6 @@ void M_LanConfig_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_MultiPlayer_f();//M_Menu_Net_f ();
 		break;
 
@@ -1826,7 +1803,6 @@ void M_LanConfig_Key (int key)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		if (lanConfig_cursor == 0)
 			break;
 
@@ -2313,7 +2289,6 @@ void M_GameOptions_Key (int key)
 	switch (key)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_Net_f ();
 		break;
 
@@ -2346,7 +2321,6 @@ void M_GameOptions_Key (int key)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		S_LocalSound ("misc/menu2.wav");
 		if (gameoptions_cursor == 0)
 		{
@@ -2495,7 +2469,6 @@ void M_ServerList_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
-	case K_ALT:
 		M_Menu_LanConfig_f ();
 		break;
 
@@ -2520,7 +2493,6 @@ void M_ServerList_Key (int k)
 		break;
 
 	case K_ENTER:
-	case K_CTRL:
 		S_LocalSound ("misc/menu2.wav");
 		m_return_state = m_state;
 		m_return_onerror = true;

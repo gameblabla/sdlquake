@@ -312,6 +312,13 @@ typedef struct
 
 int command_kayboard;
 
+int r2_cpu;
+int r2_mod;
+
+extern qboolean mouse_avail;
+extern float   mouse_x, mouse_y;
+extern int mouse_oldbuttonstate;
+
 //=============================================================================
 
 // the host system specifies the base of the directory tree, the
