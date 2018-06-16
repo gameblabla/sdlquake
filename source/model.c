@@ -747,8 +747,8 @@ void CalcSurfaceExtents (msurface_t *s)
 
 	for (i=0 ; i<2 ; i++)
 	{	
-		bmins[i] = floor(mins[i]/16);
-		bmaxs[i] = ceil(maxs[i]/16);
+		bmins[i] = floorf(mins[i]/16);
+		bmaxs[i] = ceilf(maxs[i]/16);
 
 		s->texturemins[i] = bmins[i] * 16;
 		s->extents[i] = (bmaxs[i] - bmins[i]) * 16;
@@ -791,6 +791,7 @@ void Mod_LoadFaces (lump_t *l)
 			out->flags |= SURF_PLANEBACK;			
 
 		out->plane = loadmodel->planes + planenum;
+		out->fplane = loadmodel->fplanes + planenum;
 
 		out->texinfo = loadmodel->texinfo + LittleShort (in->texinfo);
 
@@ -872,6 +873,7 @@ void Mod_LoadNodes (lump_t *l)
 	
 		p = LittleLong(in->planenum);
 		out->plane = loadmodel->planes + p;
+		out->fplane = loadmodel->fplanes + p;
 
 		out->firstsurface = LittleShort (in->firstface);
 		out->numsurfaces = LittleShort (in->numfaces);
@@ -1088,6 +1090,7 @@ void Mod_LoadPlanes (lump_t *l)
 {
 	int			i, j;
 	mplane_t	*out;
+	mfplane_t   *fout;
 	dplane_t 	*in;
 	int			count;
 	int			bits;
@@ -1096,9 +1099,11 @@ void Mod_LoadPlanes (lump_t *l)
 	if (l->filelen % sizeof(*in))
 		Sys_Error ("MOD_LoadBmodel: funny lump size in %s",loadmodel->name);
 	count = l->filelen / sizeof(*in);
-	out = Hunk_AllocName ( count*2*sizeof(*out), loadname);	
+	out = Hunk_AllocName ( count*2*sizeof(*out), loadname);	 /* FIXME: why *2 ? */
+	fout = Hunk_AllocName ( count*sizeof(*fout), loadname);
 	
 	loadmodel->planes = out;
+	loadmodel->fplanes = fout;
 	loadmodel->numplanes = count;
 
 	for ( i=0 ; i<count ; i++, in++, out++)
@@ -1114,6 +1119,17 @@ void Mod_LoadPlanes (lump_t *l)
 		out->dist = LittleFloat (in->dist);
 		out->type = LittleLong (in->type);
 		out->signbits = bits;
+	}
+	out = loadmodel->planes;
+	for( i=0; i<count;i++)
+	{
+		FIXED_FLOATTOFIXED( out->normal[ 0 ], fout[ i ].normal[ 0 ], 24 );
+		FIXED_FLOATTOFIXED( out->normal[ 1 ], fout[ i ].normal[ 1 ], 24 );
+		FIXED_FLOATTOFIXED( out->normal[ 2 ], fout[ i ].normal[ 2 ], 24 );
+		FIXED_FLOATTOFIXED( out->dist, fout[ i ].dist, 12 );
+		fout[ i ].type = out->type;
+		fout[ i ].signbits = out->signbits;
+		out++;
 	}
 }
 
@@ -1644,7 +1660,6 @@ void Mod_LoadAliasModel (model_t *mod, void *buffer)
 // FIXME: do this right
 	mod->mins[0] = mod->mins[1] = mod->mins[2] = -16;
 	mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 16;
-
 //
 // move the complete, relocatable alias model to the cache
 //	

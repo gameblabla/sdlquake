@@ -65,6 +65,17 @@ typedef struct mplane_s
 	byte	pad[2];
 } mplane_t;
 
+typedef struct mfplane_s
+{
+	fixed16_t normal[ 3 ];
+	fixed16_t dist;
+	byte	type;			// for texture axis selection and fast side tests
+	byte	signbits;		// signx + signy<<1 + signz<<1
+	byte	pad[2];
+} mfplane_t;
+
+
+
 typedef struct texture_s
 {
 	char		name[16];
@@ -107,6 +118,7 @@ typedef struct msurface_s
 	int			dlightbits;
 
 	mplane_t	*plane;
+	mfplane_t	*fplane;
 	int			flags;
 
 	int			firstedge;	// look up in model->surfedges[], negative numbers
@@ -137,6 +149,7 @@ typedef struct mnode_s
 
 // node specific
 	mplane_t	*plane;
+	mfplane_t	*fplane;
 	struct mnode_s	*children[2];	
 
 	unsigned short		firstsurface;
@@ -286,7 +299,7 @@ typedef struct {
 // Whole model
 //
 
-typedef enum {mod_brush, mod_sprite, mod_alias} modtype_t;
+typedef enum {mod_brush, mod_sprite, mod_alias, mod_dummy=0x10000} modtype_t;
 
 #define	EF_ROCKET	1			// leave a trail
 #define	EF_GRENADE	2			// leave a trail
@@ -324,6 +337,7 @@ typedef struct model_s
 
 	int			numplanes;
 	mplane_t	*planes;
+	mfplane_t	*fplanes;
 
 	int			numleafs;		// number of visible leafs, not counting 0
 	mleaf_t		*leafs;

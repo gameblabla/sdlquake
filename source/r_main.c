@@ -22,6 +22,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 
+
+#ifdef FORNSPIRE
+extern void nspire_stack_redirect( void (*f_func)(void), void *new_stack );
+extern void *p_nspire_stack_redirect;
+#endif
+
 //define	PASSAGES
 
 void		*colormap;
@@ -63,6 +69,10 @@ vec3_t	vpn, base_vpn;
 vec3_t	vright, base_vright;
 vec3_t	r_origin;
 
+#if PARTIALY_FIXED_TRANSFORM
+fixed16_t rgf16_vup[ 3 ], rgf16_vpn[ 3 ], rgf16_vright[ 3 ], rgf16_modelorg[ 3 ];
+#endif
+
 //
 // screen size info
 //
@@ -72,6 +82,10 @@ float		xscale, yscale;
 float		xscaleinv, yscaleinv;
 float		xscaleshrink, yscaleshrink;
 float		aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
+
+#if PARTIALY_FIXED_TRANSFORM
+fixed16_t f16_xscale, f16_yscale, f16_xcenter, f16_ycenter;
+#endif
 
 int		screenwidth;
 
@@ -422,6 +436,18 @@ void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 	xscaleshrink = (r_refdef.vrect.width-6)/r_refdef.horizontalFieldOfView;
 	yscaleshrink = xscaleshrink*pixelAspect;
 
+#if PARTIALY_FIXED_TRANSFORM
+	FIXED_FLOATTOFIXED( xscale, f16_xscale, 16 );
+	FIXED_FLOATTOFIXED( yscale, f16_yscale, 16 );
+	FIXED_FLOATTOFIXED( xcenter, f16_xcenter, 16 );
+	FIXED_FLOATTOFIXED( ycenter, f16_ycenter, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectx_adj, r_refdef.f16_vrectx_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrecty_adj, r_refdef.f16_vrecty_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectright_adj, r_refdef.f16_vrectright_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectbottom_adj, r_refdef.f16_vrectbottom_adj, 16 );
+#endif
+
+
 // left side clip
 	screenedge[0].normal[0] = -1.0 / (xOrigin*r_refdef.horizontalFieldOfView);
 	screenedge[0].normal[1] = 0;
@@ -524,7 +550,7 @@ void R_MarkLeaves (void)
 R_DrawEntitiesOnList
 =============
 */
-void R_DrawEntitiesOnList (void)
+void R_DrawEntitiesOnList_(void)
 {
 	int			i, j;
 	int			lnum;
@@ -598,12 +624,22 @@ void R_DrawEntitiesOnList (void)
 	}
 }
 
+void R_DrawEntitiesOnList(void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_DrawEntitiesOnList_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_DrawEntitiesOnList_();
+#endif
+
+}
+
 /*
 =============
 R_DrawViewModel
 =============
 */
-void R_DrawViewModel (void)
+void R_DrawViewModel_ (void)
 {
 // FIXME: remove and do real lighting
 	float		lightvec[3] = {-1, 0, 0};
@@ -672,6 +708,16 @@ void R_DrawViewModel (void)
 }
 
 
+void R_DrawViewModel(void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_DrawViewModel_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_DrawViewModel_();
+#endif
+}
+
+
 /*
 =============
 R_BmodelCheckBBox
@@ -681,7 +727,7 @@ int R_BmodelCheckBBox (model_t *clmodel, float *minmaxs)
 {
 	int			i, *pindex, clipflags;
 	vec3_t		acceptpt, rejectpt;
-	double		d;
+	float		d;
 
 	clipflags = 0;
 
@@ -873,7 +919,7 @@ void R_DrawBEntitiesOnList (void)
 R_EdgeDrawing
 ================
 */
-void R_EdgeDrawing (void)
+void R_EdgeDrawing_ (void)
 {
 	edge_t	ledges[NUMSTACKEDGES +
 				((CACHE_SIZE - 1) / sizeof(edge_t)) + 1];
@@ -943,6 +989,15 @@ void R_EdgeDrawing (void)
 }
 
 
+void R_EdgeDrawing (void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_EdgeDrawing_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_EdgeDrawing_();
+#endif
+}
+
 /*
 ================
 R_RenderView
@@ -950,23 +1005,27 @@ R_RenderView
 r_refdef must be set before the first call
 ================
 */
+
 void R_RenderView_ (void)
 {
-	byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
+	static byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 
 	r_warpbuffer = warpbuffer;
 
 	if (r_timegraph.value || r_speeds.value || r_dspeeds.value)
 		r_time1 = Sys_FloatTime ();
 
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
+
 	R_SetupFrame ();
 
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 #ifdef PASSAGES
 SetVisibilityByPassages ();
 #else
 	R_MarkLeaves ();	// done here so we know if we're in water
 #endif
-
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 // make FDIV fast. This reduces timing precision after we've been running for a
 // while, so we don't do it globally.  This also sets chop mode, and we do it
 // here so that setup stuff like the refresh area calculations match what's
@@ -982,7 +1041,10 @@ SetVisibilityByPassages ();
 		S_ExtraUpdate ();	// don't let sound get messed up if going slow
 		VID_LockBuffer ();
 	}
-	
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
+#if FORNSPIRE
+	/*bkpt();*/
+#endif
 	R_EdgeDrawing ();
 
 	if (!r_dspeeds.value)
@@ -997,7 +1059,7 @@ SetVisibilityByPassages ();
 		se_time2 = Sys_FloatTime ();
 		de_time1 = se_time2;
 	}
-
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 	R_DrawEntitiesOnList ();
 
 	if (r_dspeeds.value)
@@ -1005,6 +1067,7 @@ SetVisibilityByPassages ();
 		de_time2 = Sys_FloatTime ();
 		dv_time1 = de_time2;
 	}
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
 	R_DrawViewModel ();
 
@@ -1013,11 +1076,13 @@ SetVisibilityByPassages ();
 		dv_time2 = Sys_FloatTime ();
 		dp_time1 = Sys_FloatTime ();
 	}
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
 	R_DrawParticles ();
 
 	if (r_dspeeds.value)
 		dp_time2 = Sys_FloatTime ();
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
 	if (r_dowarp)
 		D_WarpScreen ();
@@ -1042,6 +1107,8 @@ SetVisibilityByPassages ();
 	if (r_reportedgeout.value && r_outofedges)
 		Con_Printf ("Short roughly %d edges\n", r_outofedges * 2 / 3);
 
+	/*Con_Printf("Timers: %d %d\n", (int)(f64_testtime1 * 1000), (int)(f64_testtime2 * 1000) );*/
+
 // back to high floating-point precision
 	Sys_HighFPPrecision ();
 }
@@ -1051,6 +1118,8 @@ void R_RenderView (void)
 	int		dummy;
 	int		delta;
 	
+	/*printf("R_RenderView %s:%d\n", __FILE__, __LINE__ );*/
+
 	delta = (byte *)&dummy - r_stack_start;
 	if (delta < -10000 || delta > 10000)
 		Sys_Error ("R_RenderView: called without enough stack");
@@ -1063,6 +1132,8 @@ void R_RenderView (void)
 
 	if ( (long)(&r_warpbuffer) & 3 )
 		Sys_Error ("Globals are missaligned");
+
+	/*printf("R_RenderView %s:%d\n", __FILE__, __LINE__ );*/
 
 	R_RenderView_ ();
 }

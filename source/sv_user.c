@@ -166,7 +166,27 @@ SV_Accelerate
 */
 cvar_t	sv_maxspeed = {"sv_maxspeed", "320", false, true};
 cvar_t	sv_accelerate = {"sv_accelerate", "10"};
+#if 0
+void SV_Accelerate (vec3_t wishvel)
+{
+	int			i;
+	float		addspeed, accelspeed;
+	vec3_t		pushvec;
 
+	if (wishspeed == 0)
+		return;
+
+	VectorSubtract (wishvel, velocity, pushvec);
+	addspeed = VectorNormalize (pushvec);
+
+	accelspeed = sv_accelerate.value*host_frametime*addspeed;
+	if (accelspeed > addspeed)
+		accelspeed = addspeed;
+	
+	for (i=0 ; i<3 ; i++)
+		velocity[i] += accelspeed*pushvec[i];	
+}
+#endif
 void SV_Accelerate (void)
 {
 	int			i;
@@ -436,7 +456,7 @@ void SV_ReadClientMove (usercmd_t *move)
 	move->forwardmove = MSG_ReadShort ();
 	move->sidemove = MSG_ReadShort ();
 	move->upmove = MSG_ReadShort ();
-	
+
 // read buttons
 	bits = MSG_ReadByte ();
 	host_client->edict->v.button0 = bits & 1;

@@ -296,6 +296,11 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 	r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	
+
+	if( r_drawsurf.surfwidth & 3 )
+	{
+		r_drawsurf.surfwidth = r_drawsurf.surfwidth;
+	}
 //
 // allocate memory if needed
 //

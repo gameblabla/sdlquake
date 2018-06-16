@@ -12,12 +12,12 @@ PROGRAM = quake.elf
 
 # Compiler
 CC := gcc
-CXX := g++
+CXX := gcc
 STRIP := 
 
 # Linker
-LDFLAGS = -lSDL -lSDL_ttf -lSDL_image -lSDL_mixer -ljpeg -lpng -lz -lm
-CFLAGS = -O0 -g -trigraphs -pipe -c  -I/usr/include/SDL/
+LDFLAGS = -lSDL -lz -lm
+CFLAGS = -O0 -g -Wall -I/usr/include/SDL
 CXXFLAGS = 
 
 # Include
@@ -26,11 +26,19 @@ INCLUDES :=
 # Libs
 LIBS += 
 
-#
-#========================================(Files)
-#
+NET_FOLDER = net
 
-CFILES	=			source/cd_null.c \
+CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
+CFILES = 			source/$(NET_FOLDER)/host.c \
+					source/$(NET_FOLDER)/menu.c \
+					source/$(NET_FOLDER)/net_dgrm.c \
+					source/$(NET_FOLDER)/net_loop.c \
+					source/$(NET_FOLDER)/net_main.c \
+					source/$(NET_FOLDER)/net_vcr.c \
+					source/$(NET_FOLDER)/net_udp.c \
+					source/$(NET_FOLDER)/net_bsd.c
+
+CFILES	+=			source/cd_null.c \
 					source/vid_sdl.c \
 					source/snd_sdl.c \
 					source/sys_sdl.c \
@@ -58,18 +66,10 @@ CFILES	=			source/cd_null.c \
 					source/d_vars.c \
 					source/d_zpoint.c \
 					source/draw.c \
-					source/host.c \
 					source/host_cmd.c \
 					source/keys.c \
 					source/mathlib.c \
-					source/menu.c \
 					source/model.c \
-					source/net_dgrm.c \
-					source/net_loop.c \
-					source/net_main.c \
-					source/net_vcr.c \
-					source/net_udp.c \
-					source/net_bsd.c \
 					source/nonintel.c \
 					source/pr_cmds.c \
 					source/pr_edict.c \

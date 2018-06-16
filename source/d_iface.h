@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define MAX_LBM_HEIGHT	480
 
+#define FIXED_POINT_PARTICLES 1
+
 typedef struct
 {
 	float	u, v;
@@ -39,13 +41,24 @@ typedef enum {
 typedef struct particle_s
 {
 // driver-usable fields
+#if !FIXED_POINT_PARTICLES
 	vec3_t		org;
 	float		color;
+#else
+	fixed16_t   rgf16_org[ 3 ];
+	fixed16_t   f16_color;
+#endif
 // drivers never touch the following fields
 	struct particle_s	*next;
+#if !FIXED_POINT_PARTICLES
 	vec3_t		vel;
 	float		ramp;
 	float		die;
+#else
+	fixed16_t   rgf16_vel[ 3 ];
+	fixed16_t	f16_ramp;
+	fixed16_t 	f16_die;
+#endif
 	ptype_t		type;
 } particle_t;
 
@@ -106,6 +119,13 @@ typedef struct
 	int		color;
 } zpointdesc_t;
 
+typedef struct {
+	fixed32_t f32_sdivzstepu, f32_tdivzstepu, f32_zistepu;
+	fixed32_t f32_sdivzstepv, f32_tdivzstepv, f32_zistepv;
+	fixed32_t f32_sdivzorigin, f32_tdivzorigin, f32_ziorigin;
+} fixed_spans8_var_package_t;
+
+
 extern cvar_t	r_drawflat;
 extern int		d_spanpixcount;
 extern int		r_framecount;		// sequence # of current frame since Quake
@@ -140,7 +160,7 @@ extern int		d_con_indirect;	// if 0, Quake will draw console directly
 								//  defined by driver
 
 extern vec3_t	r_pright, r_pup, r_ppn;
-
+extern fixed16_t       r_pright_fixed[ 3 ], r_pup_fixed[ 3 ], r_ppn_fixed[ 3 ], r_porigin_fixed[3], pxcenter_fixed, pycenter_fixed;
 
 void D_Aff8Patch (void *pcolormap);
 void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height);

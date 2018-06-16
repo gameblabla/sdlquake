@@ -241,7 +241,11 @@ void CL_Record_f (void)
 //
 // open the demo file
 //
+#if !FORNSPIRE
 	COM_DefaultExtension (name, ".dem");
+#else
+	COM_DefaultExtension (name, ".dem.tns");
+#endif
 
 	Con_Printf ("recording to %s.\n", name);
 	cls.demofile = fopen (name, "wb");

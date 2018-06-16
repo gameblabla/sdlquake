@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	TOP_RANGE		16			// soldier uniform colors
 #define	BOTTOM_RANGE	96
 
+
+#define PARTIALY_FIXED_TRANSFORM 1
+
 //=============================================================================
 
 typedef struct efrag_s
@@ -98,6 +101,9 @@ typedef struct
 	float		fov_x, fov_y;
 
 	int			ambientlight;
+#if PARTIALY_FIXED_TRANSFORM
+	fixed16_t f16_vrectx_adj, f16_vrecty_adj, f16_vrectright_adj, f16_vrectbottom_adj;
+#endif
 } refdef_t;
 
 
@@ -109,6 +115,16 @@ extern	int		reinit_surfcache;
 
 extern	refdef_t	r_refdef;
 extern vec3_t	r_origin, vpn, vright, vup;
+
+
+#if PARTIALY_FIXED_TRANSFORM
+extern fixed16_t rgf16_vup[ 3 ], rgf16_vpn[ 3 ], rgf16_vright[ 3 ], rgf16_modelorg[ 3 ];
+#endif
+
+#if PARTIALY_FIXED_TRANSFORM
+extern fixed16_t f16_xscale, f16_yscale, f16_xcenter, f16_ycenter;
+#endif
+
 
 extern	struct texture_s	*r_notexture_mip;
 

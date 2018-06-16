@@ -247,7 +247,6 @@ void Turbulent8 (espan_t *pspan)
 }
 
 
-#if	!id386
 
 /*
 =============
@@ -382,7 +381,6 @@ void D_DrawSpans8 (espan_t *pspan)
 	} while ((pspan = pspan->pnext) != NULL);
 }
 
-#endif
 
 
 #if	!id386
@@ -392,18 +390,30 @@ void D_DrawSpans8 (espan_t *pspan)
 D_DrawZSpans
 =============
 */
+
+#define CHEAP_NSPIRE_ZSPANS 1
+
 void D_DrawZSpans (espan_t *pspan)
 {
 	int				count, doublecount, izistep;
 	int				izi;
 	short			*pdest;
 	unsigned		ltemp;
+#if !CALCG_FIXED
 	double			zi;
 	float			du, dv;
+#else
+	fixed32_t		f32_zi;
+	fixed16_t		i_du, i_dv;
+#endif
 
 // FIXME: check for clamping/range problems
 // we count on FP exceptions being turned off to avoid range problems
+#if !CALCG_FIXED
 	izistep = (int)(d_zistepu * 0x8000 * 0x10000);
+#else
+	izistep = s_spans8_var_package.f32_zistepu >> 1;
+#endif
 
 	do
 	{
@@ -412,13 +422,22 @@ void D_DrawZSpans (espan_t *pspan)
 		count = pspan->count;
 
 	// calculate the initial 1/z
+#if !CALCG_FIXED
 		du = (float)pspan->u;
 		dv = (float)pspan->v;
 
 		zi = d_ziorigin + dv*d_zistepv + du*d_zistepu;
 	// we count on FP exceptions being turned off to avoid range problems
 		izi = (int)(zi * 0x8000 * 0x10000);
+#else
+		i_du = pspan->u;
+		i_dv = pspan->v;
 
+		f32_zi = s_spans8_var_package.f32_ziorigin + mul_64_32_r64(s_spans8_var_package.f32_zistepv,i_dv) + mul_64_32_r64(s_spans8_var_package.f32_zistepu,i_du);
+		izi = f32_zi >> 1;
+#endif
+
+#if !CHEAP_NSPIRE_ZSPANS
 		if ((long)pdest & 0x02)
 		{
 			*pdest++ = (short)(izi >> 16);
@@ -441,7 +460,58 @@ void D_DrawZSpans (espan_t *pspan)
 
 		if (count & 1)
 			*pdest = (short)(izi >> 16);
-
+#else
+		do
+		{
+			switch( count )
+			{
+			default:
+			case 8:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 7:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 6:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 5:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 4:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 3:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 2:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 1:
+				ltemp = izi >> 16;
+				izi += izistep;
+				*pdest = ltemp;
+				pdest++;
+			case 0:
+				;
+			}
+			count -= 8;
+		} while( count > 0 );
+#endif
 	} while ((pspan = pspan->pnext) != NULL);
 }
 

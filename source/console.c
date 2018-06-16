@@ -22,10 +22,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef NeXT
 #include <libc.h>
 #endif
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) && !defined( FORNSPIRE )
 #include <unistd.h>
 #endif
+#ifndef FORNSPIRE
 #include <fcntl.h>
+#endif
 #include "quakedef.h"
 
 int 		con_linewidth;
@@ -222,7 +224,7 @@ void Con_Init (void)
 		if (strlen (com_gamedir) < (MAXGAMEDIRLEN - strlen (t2)))
 		{
 			sprintf (temp, "%s%s", com_gamedir, t2);
-			unlink (temp);
+			/*unlink (temp);*/
 		}
 	}
 
@@ -356,12 +358,14 @@ void Con_DebugLog(char *file, char *fmt, ...)
     static char data[1024];
     int fd;
     
+#ifndef FORNSPIRE
     va_start(argptr, fmt);
     vsprintf(data, fmt, argptr);
     va_end(argptr);
     fd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0666);
     write(fd, data, strlen(data));
     close(fd);
+#endif
 }
 
 
@@ -386,7 +390,6 @@ void Con_Printf (char *fmt, ...)
 	
 // also echo to debugging console
 	Sys_Printf ("%s", msg);	// also echo to debugging console
-
 // log all messages to file
 	if (con_debuglog)
 		Con_DebugLog(va("%s/qconsole.log",com_gamedir), "%s", msg);

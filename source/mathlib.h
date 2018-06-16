@@ -26,9 +26,10 @@ typedef vec_t vec5_t[5];
 typedef	int	fixed4_t;
 typedef	int	fixed8_t;
 typedef	int	fixed16_t;
+typedef	long long fixed32_t;
 
 #ifndef M_PI
-#define M_PI		3.14159265358979323846	// matches value in gcc v2 math.h
+#define M_PI		((float)3.14159265358979323846)	// matches value in gcc v2 math.h
 #endif
 
 struct mplane_s;
@@ -42,13 +43,13 @@ extern	int nanmask;
 #define VectorSubtract(a,b,c) {c[0]=a[0]-b[0];c[1]=a[1]-b[1];c[2]=a[2]-b[2];}
 #define VectorAdd(a,b,c) {c[0]=a[0]+b[0];c[1]=a[1]+b[1];c[2]=a[2]+b[2];}
 #define VectorCopy(a,b) {b[0]=a[0];b[1]=a[1];b[2]=a[2];}
-
 void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc);
 
 vec_t _DotProduct (vec3_t v1, vec3_t v2);
 void _VectorSubtract (vec3_t veca, vec3_t vecb, vec3_t out);
 void _VectorAdd (vec3_t veca, vec3_t vecb, vec3_t out);
 void _VectorCopy (vec3_t in, vec3_t out);
+
 
 int VectorCompare (vec3_t v1, vec3_t v2);
 vec_t Length (vec3_t v);
@@ -61,8 +62,11 @@ int Q_log2(int val);
 void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
 void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
 
-void FloorDivMod (double numer, double denom, int *quotient,
-		int *rem);
+void VectorSetupFixedPointTransform();
+
+
+void FloorDivMod (double numer, double denom, int *quotient, int *rem);
+void FloorDivModFixed( int numer, int denom, int *quotient, int *rem );
 fixed16_t Invert24To16(fixed16_t val);
 int GreatestCommonDivisor (int i1, int i2);
 
@@ -87,3 +91,37 @@ float	anglemod(float a);
 	)										\
 	:										\
 		BoxOnPlaneSide( (emins), (emaxs), (p)))
+
+
+extern void test_float32_shift( float *f, int shift );
+#define CALCG_FIXED_FTOF32( f, f32 ) \
+do {								\
+	float temp;						\
+	temp = f;						\
+	test_float32_shift( &temp, 32 );	\
+	f32 = ( fixed32_t )( temp );		\
+} while( 0 )
+
+extern void test_float32_shift( float *f, int shift );
+
+#define FIXED_FIXEDTOFLOAT( in_fixed, out_float, frac ) \
+do {										\
+	float temp;								\
+	temp = ( float )in_fixed;				\
+	test_float32_shift( &temp, -(frac) );	\
+	out_float = temp;						\
+} while( 0 )
+
+#define FIXED_FLOATTOFIXED( in_float, out_fixed, frac ) \
+do {									\
+	float temp;							\
+	temp = in_float;					\
+	test_float32_shift( &temp, frac );	\
+	out_fixed = ( fixed16_t) ( temp );	\
+} while( 0 )
+
+#define FIXED_SHIFT_FLOAT( in_float, out_float, shift ) \
+do {									\
+	out_float = in_float;				\
+	test_float32_shift( &out_float, shift );	\
+} while( 0 )

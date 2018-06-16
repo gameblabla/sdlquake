@@ -19,11 +19,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // quakedef.h -- primary header for client
 
+#include <stdarg.h>
+
 //#define	GLTEST			// experimental stuff
 
 #define	QUAKE_GAME			// as opposed to utilities
 
-#undef VERSION
 #define	VERSION				1.09
 #define	GLQUAKE_VERSION		1.00
 #define	D3DQUAKE_VERSION	0.01
@@ -39,14 +40,42 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	GAMENAME	"id1"
 #endif
 
+
+#define NSPIRE_SMALL_OPTS 1
+
+#ifdef FORNSPIRE
+#define atof atof_dummy_syscall
+/*
+#define vsprintf vsprintf_dummy_syscall
+#define sprintf sprintf_dummy_syscall
+*/
+
+#include <os.h>
+#include <setjmp.h>
+#include <math.h>
+
+#undef atof
+/*#undef vsprintf
+#undef sprintf*/
+
+double atof( const char *str );
+/*
+#define vsprintf Q_vsprintf
+#define sprintf Q_sprintf
+*/
+
+#else
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#endif
 
-#if defined(_WIN32) && !defined(WINDED)
+#include "nspire_math.h"
+
+#if defined(_WIN32) && !defined(WINDED) && !defined(WIN32FORNSPIRE)
 
 #if defined(_M_IX86)
 #define __i386__	1
@@ -62,8 +91,8 @@ void	VID_UnlockBuffer (void);
 
 #endif
 
-#if defined(__i386__) && defined(USE_ASM)
-#define id386	1
+#if defined __i386__ // && !defined __sun__
+#define id386	0
 #else
 #define id386	0
 #endif

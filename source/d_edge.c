@@ -120,6 +120,7 @@ void D_DrawSolidSurface (surf_t *surf, int color)
 D_CalcGradients
 ==============
 */
+
 void D_CalcGradients (msurface_t *pface)
 {
 	mplane_t	*pplane;
@@ -130,7 +131,7 @@ void D_CalcGradients (msurface_t *pface)
 
 	pplane = pface->plane;
 
-	mipscale = 1.0 / (float)(1 << miplevel);
+	mipscale = 1.0f / (float)(1 << miplevel);
 
 	TransformVector (pface->texinfo->vecs[0], p_saxis);
 	TransformVector (pface->texinfo->vecs[1], p_taxis);
@@ -151,10 +152,10 @@ void D_CalcGradients (msurface_t *pface)
 	VectorScale (transformed_modelorg, mipscale, p_temp1);
 
 	t = 0x10000*mipscale;
-	sadjust = ((fixed16_t)(DotProduct (p_temp1, p_saxis) * 0x10000 + 0.5)) -
+	sadjust = ((fixed16_t)(DotProduct (p_temp1, p_saxis) * 0x10000 + 0.5f)) -
 			((pface->texturemins[0] << 16) >> miplevel)
 			+ pface->texinfo->vecs[0][3]*t;
-	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5)) -
+	tadjust = ((fixed16_t)(DotProduct (p_temp1, p_taxis) * 0x10000 + 0.5f)) -
 			((pface->texturemins[1] << 16) >> miplevel)
 			+ pface->texinfo->vecs[1][3]*t;
 
@@ -163,6 +164,15 @@ void D_CalcGradients (msurface_t *pface)
 //
 	bbextents = ((pface->extents[0] << 16) >> miplevel) - 1;
 	bbextentt = ((pface->extents[1] << 16) >> miplevel) - 1;
+
+#if CALCG_FIXED
+	CALCG_FIXED_FTOF32( d_sdivzstepu, s_spans8_var_package.f32_sdivzstepu );
+	CALCG_FIXED_FTOF32( d_tdivzstepu, s_spans8_var_package.f32_tdivzstepu );
+	CALCG_FIXED_FTOF32( d_sdivzstepv, s_spans8_var_package.f32_sdivzstepv );
+	CALCG_FIXED_FTOF32( d_tdivzstepv, s_spans8_var_package.f32_tdivzstepv );
+	CALCG_FIXED_FTOF32( d_sdivzorigin, s_spans8_var_package.f32_sdivzorigin );
+	CALCG_FIXED_FTOF32( d_tdivzorigin, s_spans8_var_package.f32_tdivzorigin );
+#endif
 }
 
 
@@ -194,6 +204,11 @@ void D_DrawSurfaces (void)
 			d_zistepu = s->d_zistepu;
 			d_zistepv = s->d_zistepv;
 			d_ziorigin = s->d_ziorigin;
+#if CALCG_FIXED
+			CALCG_FIXED_FTOF32( d_zistepu, s_spans8_var_package.f32_zistepu );
+			CALCG_FIXED_FTOF32( d_zistepv, s_spans8_var_package.f32_zistepv );
+			CALCG_FIXED_FTOF32( d_ziorigin, s_spans8_var_package.f32_ziorigin );
+#endif
 
 			D_DrawSolidSurface (s, (int)s->data & 0xFF);
 			D_DrawZSpans (s->spans);
@@ -211,6 +226,12 @@ void D_DrawSurfaces (void)
 			d_zistepu = s->d_zistepu;
 			d_zistepv = s->d_zistepv;
 			d_ziorigin = s->d_ziorigin;
+
+#if CALCG_FIXED
+			CALCG_FIXED_FTOF32( d_zistepu, s_spans8_var_package.f32_zistepu );
+			CALCG_FIXED_FTOF32( d_zistepv, s_spans8_var_package.f32_zistepv );
+			CALCG_FIXED_FTOF32( d_ziorigin, s_spans8_var_package.f32_ziorigin );
+#endif
 
 			if (s->flags & SURF_DRAWSKY)
 			{

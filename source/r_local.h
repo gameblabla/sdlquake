@@ -83,6 +83,9 @@ extern cvar_t	r_numedges;
 
 #define	DIST_NOT_SET	98765
 
+
+#define RECURSIVE_WORLD_NODE_CLIP_FIXED 1
+#define RECURSIVE_WORLD_NODE_FPLANE     1
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct clipplane_s
 {
@@ -91,10 +94,24 @@ typedef struct clipplane_s
 	struct		clipplane_s	*next;
 	byte		leftedge;
 	byte		rightedge;
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED
+	byte        idx;
+	byte		reserved[1];
+#else
 	byte		reserved[2];
+#endif
 } clipplane_t;
 
 extern	clipplane_t	view_clipplanes[4];
+
+
+typedef struct clipplane_fixed_s
+{
+	fixed16_t	normal[ 3 ];
+	fixed16_t   f16_dist; /* dist * ( 1 << 12 ) */
+} clipplane_fixed_t;
+
+extern	clipplane_fixed_t	view_clipplanes_fixed[4];
 
 //=============================================================================
 
@@ -184,7 +201,8 @@ extern	model_t		*cl_worldmodel;
 extern int		*pfrustum_indexes[4];
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
-#define	NEAR_CLIP	0.01
+/* NSPIRE: changed from 0.01 to 1.5 */
+#define	NEAR_CLIP	1.5
 
 extern int			ubasestep, errorterm, erroradjustup, erroradjustdown;
 extern int			vstartscan;

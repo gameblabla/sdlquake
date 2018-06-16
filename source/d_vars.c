@@ -19,9 +19,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // r_vars.c: global refresh variables
 
-#include	"quakedef.h"
-
 #if	!id386
+
+#include	"quakedef.h"
 
 // all global and static refresh variables are collected in a contiguous block
 // to avoid cache conflicts.
@@ -36,6 +36,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 float	d_sdivzstepu, d_tdivzstepu, d_zistepu;
 float	d_sdivzstepv, d_tdivzstepv, d_zistepv;
 float	d_sdivzorigin, d_tdivzorigin, d_ziorigin;
+
+
+fixed_spans8_var_package_t s_spans8_var_package;
 
 fixed16_t	sadjust, tadjust, bbextents, bbextentt;
 

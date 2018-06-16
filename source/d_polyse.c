@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #include "d_local.h"
 
+#define NSPIRE_POLYSET_DRAWSPANS 1
+
 // TODO: put in span spilling to shrink list size
 // !!! if this is changed, it must be changed in d_polysa.s too !!!
 #define DPS_MAXSPANS			MAXHEIGHT+1	
@@ -490,7 +492,9 @@ D_PolysetSetUpForLineScan
 void D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 		fixed8_t endvertu, fixed8_t endvertv)
 {
+#if !NSPIRE_SMALL_OPTS
 	double		dm, dn;
+#endif
 	int			tm, tn;
 	adivtab_t	*ptemp;
 
@@ -511,12 +515,16 @@ void D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 	}
 	else
 	{
+#if NSPIRE_SMALL_OPTS
+		FloorDivModFixed( tm, tn, &ubasestep, &erroradjustup );
+		erroradjustdown = tn;
+#else
 		dm = (double)tm;
 		dn = (double)tn;
 
 		FloorDivMod (dm, dn, &ubasestep, &erroradjustup);
-
 		erroradjustdown = dn;
+#endif
 	}
 }
 
@@ -528,8 +536,12 @@ void D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 D_PolysetCalcGradients
 ================
 */
+
+#define NSPIRE_POLYSET_GRAD_FIXED 1
+
 void D_PolysetCalcGradients (int skinwidth)
 {
+#if !NSPIRE_POLYSET_GRAD_FIXED
 	float	xstepdenominv, ystepdenominv, t0, t1;
 	float	p01_minus_p21, p11_minus_p21, p00_minus_p20, p10_minus_p20;
 
@@ -538,7 +550,7 @@ void D_PolysetCalcGradients (int skinwidth)
 	p10_minus_p20 = r_p1[0] - r_p2[0];
 	p11_minus_p21 = r_p1[1] - r_p2[1];
 
-	xstepdenominv = 1.0 / (float)d_xdenom;
+	xstepdenominv = 1.0f / (float)d_xdenom;
 
 	ystepdenominv = -xstepdenominv;
 
@@ -548,9 +560,9 @@ void D_PolysetCalcGradients (int skinwidth)
 	t0 = r_p0[4] - r_p2[4];
 	t1 = r_p1[4] - r_p2[4];
 	r_lstepx = (int)
-			ceil((t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv);
+			ceilf((t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv);
 	r_lstepy = (int)
-			ceil((t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv);
+			ceilf((t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv);
 
 	t0 = r_p0[2] - r_p2[2];
 	t1 = r_p1[2] - r_p2[2];
@@ -577,11 +589,73 @@ void D_PolysetCalcGradients (int skinwidth)
 	a_sstepxfrac = r_sstepx << 16;
 	a_tstepxfrac = r_tstepx << 16;
 #else
+#if !NSPIRE_POLYSET_DRAWSPANS
 	a_sstepxfrac = r_sstepx & 0xFFFF;
 	a_tstepxfrac = r_tstepx & 0xFFFF;
+#else
+	a_sstepxfrac = r_sstepx;
+	a_tstepxfrac = r_tstepx;
+#endif
 #endif
 
 	a_ststepxwhole = skinwidth * (r_tstepx >> 16) + (r_sstepx >> 16);
+#else
+	fixed16_t xstepdenominv, ystepdenominv, t0, t1;
+	fixed16_t p01_minus_p21, p11_minus_p21, p00_minus_p20, p10_minus_p20;
+
+	p00_minus_p20 = r_p0[0] - r_p2[0];
+	p01_minus_p21 = r_p0[1] - r_p2[1];
+	p10_minus_p20 = r_p1[0] - r_p2[0];
+	p11_minus_p21 = r_p1[1] - r_p2[1];
+
+	if( d_xdenom < 0 )
+	{
+		xstepdenominv = -udiv_fast_32_32_incorrect( -d_xdenom, 0x1000000 );
+	}
+	else
+	{
+		xstepdenominv = udiv_fast_32_32_incorrect( d_xdenom, 0x1000000 );
+	}
+	ystepdenominv = -xstepdenominv;
+
+// ceil () for light so positive steps are exaggerated, negative steps
+// diminished,  pushing us away from underflow toward overflow. Underflow is
+// very visible, overflow is very unlikely, because of ambient lighting
+	t0 = r_p0[4] - r_p2[4];
+	t1 = r_p1[4] - r_p2[4];
+	r_lstepx = (int) ((((long long)(t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv) + 0xffffff) >> 24 );
+	r_lstepy = (int) ((((long long)(t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv) + 0xffffff) >> 24 );
+
+	t0 = r_p0[2] - r_p2[2];
+	t1 = r_p1[2] - r_p2[2];
+	r_sstepx = (int)(((long long)(t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv) >> 24 );
+	r_sstepy = (int)(((long long)(t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv) >> 24 );
+
+	t0 = r_p0[3] - r_p2[3];
+	t1 = r_p1[3] - r_p2[3];
+	r_tstepx = (int)(((long long)(t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv) >> 24 );
+	r_tstepy = (int)(((long long)(t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv) >> 24 );
+
+	t0 = (r_p0[5] - r_p2[5])>>16;
+	t1 = (r_p1[5] - r_p2[5])>>16;
+	r_zistepx = (int)(((long long)(t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv) >> 8);
+	r_zistepy = (int)(((long long)(t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv) >> 8);
+
+#if	id386
+	a_sstepxfrac = r_sstepx << 16;
+	a_tstepxfrac = r_tstepx << 16;
+#else
+#if !NSPIRE_POLYSET_DRAWSPANS
+	a_sstepxfrac = r_sstepx & 0xFFFF;
+	a_tstepxfrac = r_tstepx & 0xFFFF;
+#else
+	a_sstepxfrac = r_sstepx;
+	a_tstepxfrac = r_tstepx;
+#endif
+#endif
+
+	a_ststepxwhole = skinwidth * (r_tstepx >> 16) + (r_sstepx >> 16);
+#endif
 }
 
 #endif	// !id386
@@ -611,6 +685,144 @@ void InitGel (byte *palette)
 D_PolysetDrawSpans8
 ================
 */
+typedef struct {
+	int		lcount;
+	byte	*lpdest;
+	byte	*lptex;
+	short	*lpz;
+
+	byte    *acolormap;
+	int     skinwidth;
+
+	fixed16_t lsfrac;
+	fixed16_t ltfrac;
+	fixed16_t llight;
+	fixed16_t lzi;
+
+	fixed16_t a_sstepxfrac;
+	fixed16_t a_tstepxfrac;
+	fixed16_t r_zistepx;
+	fixed16_t r_lstepx;
+} d_polyset_draw_spans_8_nspire_t;
+
+#if NSPIRE_POLYSET_DRAWSPANS
+#ifndef FORNSPIRE
+void D_NSpirePolysetDrawSpan ( d_polyset_draw_spans_8_nspire_t *ps_dset )
+{
+	short *lpz;
+	int lcount = ps_dset->lcount;
+	int i_zpass, local_skinwidth;
+	fixed16_t dzi, lzi, slzi, local_r_zistepx;
+	byte *local_acolormap, *lptex, *lpdest;
+	fixed16_t lsfrac, ltfrac, llight, local_r_lstepx, local_a_sstepxfrac, local_a_tstepxfrac;
+
+	do
+	{
+		i_zpass = 0;
+
+		/* z */
+		lpz = ps_dset->lpz;
+		lzi = ps_dset->lzi;
+		local_r_zistepx = ps_dset->r_zistepx;
+
+#define NSPIRE_POLYSET_ZITER( x )	\
+do {							\
+	slzi = lzi >> 16;			\
+	dzi = *lpz;					\
+	lzi += local_r_zistepx;		\
+	if( slzi >= dzi )			\
+	{							\
+		*lpz = slzi;			\
+		i_zpass |= x;			\
+	}							\
+	lpz++;						\
+} while( 0 )
+
+		switch( lcount )
+		{
+		default:
+		case 8:
+			NSPIRE_POLYSET_ZITER( 1 );
+		case 7:
+			NSPIRE_POLYSET_ZITER( 2 );
+		case 6:
+			NSPIRE_POLYSET_ZITER( 4 );
+		case 5:
+			NSPIRE_POLYSET_ZITER( 8 );
+		case 4:
+			NSPIRE_POLYSET_ZITER( 16 );
+		case 3:
+			NSPIRE_POLYSET_ZITER( 32 );
+		case 2:
+			NSPIRE_POLYSET_ZITER( 64 );
+		case 1:
+			NSPIRE_POLYSET_ZITER( 128 );
+		case 0:
+			;
+		}
+
+		ps_dset->lpz = lpz;
+		ps_dset->lzi = lzi;
+
+		/* tex + l */
+
+		lpdest = ps_dset->lpdest;
+		lptex = ps_dset->lptex;
+		local_skinwidth = ps_dset->skinwidth;
+		local_acolormap = ps_dset->acolormap;
+		local_r_lstepx = ps_dset->r_lstepx;
+		local_a_sstepxfrac = ps_dset->a_sstepxfrac;
+		local_a_tstepxfrac = ps_dset->a_tstepxfrac;
+		llight = ps_dset->llight;
+		lsfrac = ps_dset->lsfrac;
+		ltfrac = ps_dset->ltfrac;
+
+#define NSPIRE_POLYSET_TITER( x )			\
+do {										\
+	if( i_zpass & x )						\
+	{										\
+		*lpdest = (local_acolormap)[ lptex[ ( lsfrac >> 16 ) + ( ( ltfrac >> 16 ) * local_skinwidth ) ] + ( llight & 0xff00 ) ];	\
+	}										\
+	lpdest++;								\
+	llight += local_r_lstepx;				\
+	lsfrac += local_a_sstepxfrac;			\
+	ltfrac += local_a_tstepxfrac;			\
+} while( 0 )
+
+		switch( lcount )
+		{
+		default:
+		case 8:
+			NSPIRE_POLYSET_TITER( 1 );
+		case 7:
+			NSPIRE_POLYSET_TITER( 2 );
+		case 6:
+			NSPIRE_POLYSET_TITER( 4 );
+		case 5:
+			NSPIRE_POLYSET_TITER( 8 );
+		case 4:
+			NSPIRE_POLYSET_TITER( 16 );
+		case 3:
+			NSPIRE_POLYSET_TITER( 32 );
+		case 2:
+			NSPIRE_POLYSET_TITER( 64 );
+		case 1:
+			NSPIRE_POLYSET_TITER( 128 );
+		case 0:
+			;
+		}
+
+		ps_dset->lpdest = lpdest;
+		ps_dset->llight = llight;
+		ps_dset->lsfrac = lsfrac;
+		ps_dset->ltfrac = ltfrac;
+
+		lcount -= 8;
+	} while( lcount > 0 );
+}
+#endif
+#endif
+
 void D_PolysetDrawSpans8 (spanpackage_t *pspanpackage)
 {
 	int		lcount;
@@ -620,7 +832,10 @@ void D_PolysetDrawSpans8 (spanpackage_t *pspanpackage)
 	int		llight;
 	int		lzi;
 	short	*lpz;
+	int i_tmp, i_tmp2, i_zpass;
 
+
+#if !NSPIRE_POLYSET_DRAWSPANS
 	do
 	{
 		lcount = d_aspancount - pspanpackage->count;
@@ -673,6 +888,59 @@ void D_PolysetDrawSpans8 (spanpackage_t *pspanpackage)
 
 		pspanpackage++;
 	} while (pspanpackage->count != -999999);
+#else
+	d_polyset_draw_spans_8_nspire_t s_dset;
+	s_dset.acolormap = ( byte *)acolormap;
+	s_dset.skinwidth = r_affinetridesc.skinwidth;
+	s_dset.a_sstepxfrac = a_sstepxfrac;
+	s_dset.a_tstepxfrac = a_tstepxfrac;
+	s_dset.r_lstepx = r_lstepx;
+	s_dset.r_zistepx = r_zistepx;
+
+	do
+	{
+		lcount = d_aspancount - pspanpackage->count;
+
+		errorterm += erroradjustup;
+		if (errorterm >= 0)
+		{
+			d_aspancount += d_countextrastep;
+			errorterm -= erroradjustdown;
+		}
+		else
+		{
+			d_aspancount += ubasestep;
+		}
+
+		if (lcount)
+		{
+
+			s_dset.lcount = lcount;
+			s_dset.lpdest = ( byte *)pspanpackage->pdest;
+			s_dset.lptex = pspanpackage->ptex;
+			s_dset.lpz = pspanpackage->pz;
+			s_dset.lsfrac = pspanpackage->sfrac;
+			s_dset.ltfrac = pspanpackage->tfrac;
+			s_dset.llight = pspanpackage->light;
+			s_dset.lzi = pspanpackage->zi;
+
+			D_NSpirePolysetDrawSpan( &s_dset );
+
+#if 0
+						__asm volatile(														\
+						"mov		%[_tmp], %[_tex_s], asr #16								\n\t"	\
+						"smlabt		%[_tmp], %[_skinwidth], %[_tex_t], %[_tmp]				\n\t"	\
+						"ldrb		%[_tmp2], [ %[_tex], %[_tmp] ]							\n\t"	\
+						"and		%[_tmp], %[_light], #65280								\n\t"	\
+						"add		%[_tmp2], %[_tmp], %[_tmp2]								\n\t"	\
+						"ldrb		%[_tmp], [ %[_colormap], %[_tmp2] ]						\n\t"	\
+						"strb		%[_tmp], [ %[_pdest] ]									\n\t"	\
+						:  [_tmp] "=&r" (i_tmp), [_tmp2] "=&r" (i_tmp2) : [_pdest] "r" (lpdest), [_tex] "r" (lptex), [_colormap] "r" (local_acolormap), [_tex_s] "r" (lsfrac), [_tex_t] "r" (ltfrac), [_skinwidth] "r" (local_skinwidth), [_light] "r" (llight) : );
+#endif
+		}
+		pspanpackage++;
+	} while (pspanpackage->count != -999999);
+#endif
 }
 #endif	// !id386
 

@@ -9,3 +9,7 @@ id1
 id1/*.pak
 id1/*.cfg
 source/*.o
+lastpc_working/
+/source/net/*.o
+/source/local_net/*.o
+core

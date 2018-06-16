@@ -20,8 +20,8 @@ SDL_LIBS    := $(shell $(SYSROOT)/usr/bin/sdl-config --libs)
 PROGRAM = sdlquake.dge
 
 # Linker
-LDFLAGS = $(SDL_LIBS) -lm -s -flto
-CFLAGS = -O2 -mips32 -mno-mips16 $(SDL_CFLAGS)
+LDFLAGS = $(SDL_LIBS) -s -lm
+CFLAGS = -O2 -ffast-math -funroll-loops -falign-loops=2 -falign-jumps=2 -falign-functions=2 -fno-strict-aliasing $(SDL_CFLAGS)
 CXXFLAGS = 
 
 # Include
@@ -30,11 +30,19 @@ INCLUDES :=
 # Libs
 LIBS += 
 
-#
-#========================================(Files)
-#
+NET_FOLDER = local_net
 
-CFILES	=			source/cd_null.c \
+CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
+CFILES = 			source/$(NET_FOLDER)/host.c \
+					source/$(NET_FOLDER)/menu.c \
+					source/$(NET_FOLDER)/net_dgrm.c \
+					source/$(NET_FOLDER)/net_loop.c \
+					source/$(NET_FOLDER)/net_main.c \
+					source/$(NET_FOLDER)/net_vcr.c \
+					source/$(NET_FOLDER)/net_udp.c \
+					source/$(NET_FOLDER)/net_bsd.c
+
+CFILES	+=			source/cd_null.c \
 					source/vid_rs97.c \
 					source/snd_sdl.c \
 					source/sys_sdl.c \
@@ -62,18 +70,10 @@ CFILES	=			source/cd_null.c \
 					source/d_vars.c \
 					source/d_zpoint.c \
 					source/draw.c \
-					source/host.c \
 					source/host_cmd.c \
 					source/keys.c \
 					source/mathlib.c \
-					source/menu.c \
 					source/model.c \
-					source/net_dgrm.c \
-					source/net_loop.c \
-					source/net_main.c \
-					source/net_vcr.c \
-					source/net_udp.c \
-					source/net_bsd.c \
 					source/nonintel.c \
 					source/pr_cmds.c \
 					source/pr_edict.c \

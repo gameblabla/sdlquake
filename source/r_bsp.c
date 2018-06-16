@@ -39,7 +39,7 @@ vec3_t			r_worldmodelorg;
 
 int				r_currentbkey;
 
-typedef enum {touchessolid, drawnode, nodrawnode} solidstate_t;
+typedef enum {touchessolid, drawnode, nodrawnode, some_dummy_enum=0x10000 } solidstate_t;
 
 #define MAX_BMODEL_VERTS	500			// 6K
 #define MAX_BMODEL_EDGES	1000		// 12K
@@ -88,8 +88,8 @@ void R_RotateBmodel (void)
 // yaw
 	angle = currententity->angles[YAW];		
 	angle = angle * M_PI*2 / 360;
-	s = sin(angle);
-	c = cos(angle);
+	s = sinf(angle);
+	c = cosf(angle);
 
 	temp1[0][0] = c;
 	temp1[0][1] = s;
@@ -105,8 +105,8 @@ void R_RotateBmodel (void)
 // pitch
 	angle = currententity->angles[PITCH];		
 	angle = angle * M_PI*2 / 360;
-	s = sin(angle);
-	c = cos(angle);
+	s = sinf(angle);
+	c = cosf(angle);
 
 	temp2[0][0] = c;
 	temp2[0][1] = 0;
@@ -123,8 +123,8 @@ void R_RotateBmodel (void)
 // roll
 	angle = currententity->angles[ROLL];		
 	angle = angle * M_PI*2 / 360;
-	s = sin(angle);
-	c = cos(angle);
+	s = sinf(angle);
+	c = cosf(angle);
 
 	temp1[0][0] = 1;
 	temp1[0][1] = 0;
@@ -445,14 +445,24 @@ void R_DrawSubmodelPolygons (model_t *pmodel, int clipflags)
 R_RecursiveWorldNode
 ================
 */
+#define RECURSIVE_WORLD_NODE_FIXED_DOTP( v1, v2 ) ( ( llmull_s0( v1[ 0 ], v2[ 0 ] ) + llmull_s0( v1[ 1 ], v2[ 1 ] ) + llmull_s0( v1[ 2 ], v2[ 2 ] ) + ( 1 << 11 ) ) >> 12 )
+#define RECURSIVE_WORLD_NODE_BSP_FIXED_DOTP( v1, v2 ) ( ( llmull_s0( v1[ 0 ], v2[ 0 ] ) + llmull_s0( v1[ 1 ], v2[ 1 ] ) + llmull_s0( v1[ 2 ], v2[ 2 ] ) + ( 1 << 27 ) ) >> 28 )
+
 void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 {
 	int			i, c, side, *pindex;
 	vec3_t		acceptpt, rejectpt;
-	mplane_t	*plane;
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED || !RECURSIVE_WORLD_NODE_FPLANE
+	fixed16_t   rgf16_acceptpt[ 3 ], rgf16_rejectpt[ 3 ];
+	fixed16_t   f16_d, f16_dot;
+	mfplane_t	*fplane;
+#endif
 	msurface_t	*surf, **mark;
 	mleaf_t		*pleaf;
-	double		d, dot;
+#if !RECURSIVE_WORLD_NODE_FPLANE
+	float		d, dot;
+	mplane_t	*plane;
+#endif
 
 	if (node->contents == CONTENTS_SOLID)
 		return;		// solid
@@ -463,13 +473,14 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 // cull the clipping planes if not trivial accept
 // FIXME: the compiler is doing a lousy job of optimizing here; it could be
 //  twice as fast in ASM
-	if (clipflags)
+	if (clipflags )
 	{
 		for (i=0 ; i<4 ; i++)
 		{
 			if (! (clipflags & (1<<i)) )
 				continue;	// don't need to clip against it
 
+#if !RECURSIVE_WORLD_NODE_CLIP_FIXED
 		// generate accept and reject points
 		// FIXME: do with fast look-ups or integer tests based on the sign bit
 		// of the floating point values
@@ -495,6 +506,28 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 
 			if (d >= 0)
 				clipflags &= ~(1<<i);	// node is entirely on screen
+#else
+			pindex = pfrustum_indexes[i];
+
+
+			rgf16_rejectpt[0] = node->minmaxs[pindex[0]];
+			rgf16_rejectpt[1] = node->minmaxs[pindex[1]];
+			rgf16_rejectpt[2] = node->minmaxs[pindex[2]];
+			
+			f16_d = RECURSIVE_WORLD_NODE_FIXED_DOTP( rgf16_rejectpt, view_clipplanes_fixed[i].normal ) - view_clipplanes_fixed[i].f16_dist;
+
+			if ( f16_d <= 0 )
+				return;
+
+			rgf16_acceptpt[0] = node->minmaxs[pindex[3+0]];
+			rgf16_acceptpt[1] = node->minmaxs[pindex[3+1]];
+			rgf16_acceptpt[2] = node->minmaxs[pindex[3+2]];
+
+			f16_d = RECURSIVE_WORLD_NODE_FIXED_DOTP( rgf16_acceptpt, view_clipplanes_fixed[i].normal ) - view_clipplanes_fixed[i].f16_dist;
+
+			if ( f16_d >= 0 )
+				clipflags &= ~(1<<i);
+#endif
 		}
 	}
 	
@@ -529,6 +562,7 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 	// node is just a decision point, so go down the apropriate sides
 
 	// find which side of the node we are on
+#if !RECURSIVE_WORLD_NODE_FPLANE
 		plane = node->plane;
 
 		switch (plane->type)
@@ -551,6 +585,30 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 			side = 0;
 		else
 			side = 1;
+#else
+		fplane = node->fplane;
+
+		switch (fplane->type)
+		{
+		case PLANE_X:
+			f16_dot = rgf16_modelorg[0] - ( fplane->dist << 4 );
+			break;
+		case PLANE_Y:
+			f16_dot = rgf16_modelorg[1] - ( fplane->dist << 4 );
+			break;
+		case PLANE_Z:
+			f16_dot = rgf16_modelorg[2] - ( fplane->dist << 4 );
+			break;
+		default:
+			f16_dot = RECURSIVE_WORLD_NODE_BSP_FIXED_DOTP( rgf16_modelorg, fplane->normal ) - fplane->dist;
+			break;
+		}
+	
+		if (f16_dot >= 0)
+			side = 0;
+		else
+			side = 1;
+#endif
 
 	// recurse down the children, front side first
 		R_RecursiveWorldNode (node->children[side], clipflags);
@@ -562,7 +620,11 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 		{
 			surf = cl.worldmodel->surfaces + node->firstsurface;
 
+#if !RECURSIVE_WORLD_NODE_FPLANE
 			if (dot < -BACKFACE_EPSILON)
+#else
+			if ( f16_dot < ( ( int ) ( -( 0.01 * ( 1 << 12 ) ) ) ) )
+#endif
 			{
 				do
 				{
@@ -595,7 +657,11 @@ void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 					surf++;
 				} while (--c);
 			}
+#if !RECURSIVE_WORLD_NODE_FPLANE
 			else if (dot > BACKFACE_EPSILON)
+#else
+			else if ( f16_dot > ( ( int ) ( ( 0.01 * ( 1 << 12 ) ) ) ) )
+#endif
 			{
 				do
 				{

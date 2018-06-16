@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // host.c -- coordinates spawning and killing of local servers
 
 #include "quakedef.h"
-
+#include "r_local.h"
 
 /*
 
@@ -251,7 +251,11 @@ void Host_WriteConfiguration (void)
 // config.cfg cvars
 	if (host_initialized & !isDedicated)
 	{
-		f = fopen (va("%s/config.cfg",com_gamedir), "w");
+#if !FORNSPIRE
+		f = fopen (va("%s/config.cfg",com_gamedir), "wb");
+#else
+		f = fopen (va("%s/config.cfg.tns",com_gamedir), "wb");
+#endif
 		if (!f)
 		{
 			Con_Printf ("Couldn't write config.cfg.\n");
@@ -630,12 +634,17 @@ Host_Frame
 Runs all active servers
 ==================
 */
+
+double d_generictimer = 0.0;
+
 void _Host_Frame (float time)
 {
 	static double		time1 = 0;
 	static double		time2 = 0;
 	static double		time3 = 0;
 	int			pass1, pass2, pass3;
+
+	d_generictimer = 0.0;
 
 	if (setjmp (host_abortserver) )
 		return;			// something bad happened, or the server disconnected
@@ -694,14 +703,17 @@ void _Host_Frame (float time)
 	}
 
 // update video
+	/*printf("Sys_FloatTime %s:%d\n", __FILE__, __LINE__ );*/
 	if (host_speeds.value)
 		time1 = Sys_FloatTime ();
-		
+	
+	/*printf("SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 	SCR_UpdateScreen ();
 
 	if (host_speeds.value)
 		time2 = Sys_FloatTime ();
-		
+	
+	/*printf("CL_DecayLights %s:%d\n", __FILE__, __LINE__ );*/
 // update audio
 	if (cls.signon == SIGNONS)
 	{
@@ -713,6 +725,8 @@ void _Host_Frame (float time)
 	
 	CDAudio_Update();
 
+	/*printf("time() %s:%d\n", __FILE__, __LINE__ );*/
+
 	if (host_speeds.value)
 	{
 		pass1 = (time1 - time3)*1000;
@@ -721,6 +735,7 @@ void _Host_Frame (float time)
 		pass3 = (time3 - time2)*1000;
 		Con_Printf ("%3i tot %3i server %3i gfx %3i snd\n",
 					pass1+pass2+pass3, pass1, pass2, pass3);
+		Con_Printf ("generictimer: %i\n", (int)( d_generictimer * 1000 ));
 	}
 	
 	host_framecount++;
@@ -834,46 +849,66 @@ Host_Init
 */
 void Host_Init (quakeparms_t *parms)
 {
-
+	/*printf("A---\n");*/
 	if (standard_quake)
 		minimum_memory = MINIMUM_MEMORY;
 	else
 		minimum_memory = MINIMUM_MEMORY_LEVELPAK;
 
+	/*printf("A--\n");*/
 	if (COM_CheckParm ("-minmemory"))
 		parms->memsize = minimum_memory;
 
 	host_parms = *parms;
 
+	/*printf("A-\n");*/
 	if (parms->memsize < minimum_memory)
 		Sys_Error ("Only %4.1f megs of memory available, can't execute game", parms->memsize / (float)0x100000);
 
 	com_argc = parms->argc;
 	com_argv = parms->argv;
 
+	/*printf("A\n");*/
 	Memory_Init (parms->membase, parms->memsize);
+	/*printf("B\n");*/
 	Cbuf_Init ();
+	/*printf("C\n");*/
 	Cmd_Init ();	
+	/*printf("D\n");*/
 	V_Init ();
+	/*printf("E\n");*/
 	Chase_Init ();
+	/*printf("F\n");*/
 	Host_InitVCR (parms);
+	/*printf("G\n");*/
 	COM_Init (parms->basedir);
+	/*printf("H\n");*/
 	Host_InitLocal ();
+	/*printf("I\n");*/
 	W_LoadWadFile ("gfx.wad");
+	/*printf("J\n");*/
 	Key_Init ();
+	/*printf("K\n");*/
 	Con_Init ();	
+	/*printf("L\n");*/
 	M_Init ();	
+	/*printf("M\n");*/
 	PR_Init ();
+	/*printf("N\n");*/
 	Mod_Init ();
-	//angelo get list of interfaces and addresses of interfaces
-	Get_If_Add_L ();
-	//angelo get interfaces and addresses of interfaces
+	/*printf("O\n");*/
 	NET_Init ();
+	/*printf("P\n");*/
 	SV_Init ();
 
+	/*printf("DONE\n");*/
+
 	Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
+	/*printf("DONE2\n");*/
 	Con_Printf ("%4.1f megabyte heap\n",parms->memsize/ (1024*1024.0));
 	
+	/*printf("DONE3\n");*/
+
 	R_InitTextures ();		// needed even for dedicated servers
  
 	if (cls.state != ca_dedicated)
@@ -885,26 +920,32 @@ void Host_Init (quakeparms_t *parms)
 		if (!host_colormap)
 			Sys_Error ("Couldn't load gfx/colormap.lmp");
 
-
+#ifndef _WIN32 // on non win32, mouse comes before video for security reasons
 		IN_Init ();
-
+#endif
 		VID_Init (host_basepal);
 
 		Draw_Init ();
 		SCR_Init ();
 		R_Init ();
-
+#ifndef	_WIN32
 	// on Win32, sound initialization has to come before video initialization, so we
 	// can put up a popup if the sound hardware is in use
 		S_Init ();
+#else
 
+#ifdef	GLQUAKE
 	// FIXME: doesn't use the new one-window approach yet
-		//S_Init ();
+		S_Init ();
+#endif
 
+#endif	// _WIN32
 		CDAudio_Init ();
 		Sbar_Init ();
 		CL_Init ();
-
+#ifdef _WIN32 // on non win32, mouse comes before video for security reasons
+		IN_Init ();
+#endif
 	}
 
 	Cbuf_InsertText ("exec quake.rc\n");

@@ -36,7 +36,17 @@ particle_t	*particles;
 int			r_numparticles;
 
 vec3_t			r_pright, r_pup, r_ppn;
+fixed16_t       r_pright_fixed[ 3 ], r_pup_fixed[ 3 ], r_ppn_fixed[ 3 ], r_porigin_fixed[3];
+fixed16_t       pxcenter_fixed, pycenter_fixed;
 
+#define FIXED16_DIE( f ) ((int)((f) * ((float)0x200)))
+#define FIXED16_ORIGIN( f ) ((int)((f) * ((float)0x100)))
+#define FIXED16_VELOCITY( f ) ((int)((f) * ((float)0x100)))
+#define FIXED16_VELOCITYF( i ) ((int)((i)<<8))
+#define FIXED16_RAMPF( i ) ((int)((i)<<8))
+
+#define FIXED16_ADDVELOCITY( i, time ) ( ( (i)*(time) ) >> 9 );
+#define FIXED16_ADDVELOCITYV( i, val ) ( ( (i)*(val) ) >> 8 );
 
 /*
 ===============
@@ -164,6 +174,7 @@ avelocities[0][i] = (rand()&255) * 0.01;
 		p->next = active_particles;
 		active_particles = p;
 
+#if !FIXED_POINT_PARTICLES
 		p->die = cl.time + 0.01;
 		p->color = 0x6f;
 		p->type = pt_explode;
@@ -171,6 +182,15 @@ avelocities[0][i] = (rand()&255) * 0.01;
 		p->org[0] = ent->origin[0] + r_avertexnormals[i][0]*dist + forward[0]*beamlength;			
 		p->org[1] = ent->origin[1] + r_avertexnormals[i][1]*dist + forward[1]*beamlength;			
 		p->org[2] = ent->origin[2] + r_avertexnormals[i][2]*dist + forward[2]*beamlength;			
+#else
+		p->f16_die = cl.time + 0.01;
+		p->f16_color = 0x6f;
+		p->type = pt_explode;
+		
+		p->rgf16_org[0] = FIXED16_ORIGIN( ent->origin[0] + r_avertexnormals[i][0]*dist + forward[0]*beamlength );
+		p->rgf16_org[1] = FIXED16_ORIGIN( ent->origin[1] + r_avertexnormals[i][1]*dist + forward[1]*beamlength );
+		p->rgf16_org[2] = FIXED16_ORIGIN( ent->origin[2] + r_avertexnormals[i][2]*dist + forward[2]*beamlength );
+#endif
 	}
 }
 
@@ -230,11 +250,23 @@ void R_ReadPointFile_f (void)
 		p->next = active_particles;
 		active_particles = p;
 		
+#if !FIXED_POINT_PARTICLES
 		p->die = 99999;
 		p->color = (-c)&15;
 		p->type = pt_static;
 		VectorCopy (vec3_origin, p->vel);
 		VectorCopy (org, p->org);
+#else
+		p->f16_die = FIXED16_DIE( 99999 );
+		p->f16_color = (-c)&15;
+		p->type = pt_static;
+		p->rgf16_vel[ 0 ] = FIXED16_VELOCITY( vec3_origin[ 0 ] );
+		p->rgf16_vel[ 1 ] = FIXED16_VELOCITY( vec3_origin[ 1 ] );
+		p->rgf16_vel[ 2 ] = FIXED16_VELOCITY( vec3_origin[ 2 ] );
+		p->rgf16_org[ 0 ] = FIXED16_VELOCITY( org[ 0 ] );
+		p->rgf16_org[ 1 ] = FIXED16_VELOCITY( org[ 1 ] );
+		p->rgf16_org[ 2 ] = FIXED16_VELOCITY( org[ 2 ] );
+#endif
 	}
 
 	fclose (f);
@@ -288,16 +320,27 @@ void R_ParticleExplosion (vec3_t org)
 		p->next = active_particles;
 		active_particles = p;
 
+#if !FIXED_POINT_PARTICLES
 		p->die = cl.time + 5;
 		p->color = ramp1[0];
 		p->ramp = rand()&3;
+#else
+		p->f16_die = FIXED16_DIE( 5 );
+		p->f16_color = ramp1[ 0 ];
+		p->f16_ramp = FIXED16_RAMPF(rand()&3);
+#endif
 		if (i & 1)
 		{
 			p->type = pt_explode;
 			for (j=0 ; j<3 ; j++)
 			{
+#if !FIXED_POINT_PARTICLES
 				p->org[j] = org[j] + ((rand()%32)-16);
 				p->vel[j] = (rand()%512)-256;
+#else
+				p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+				p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+#endif
 			}
 		}
 		else
@@ -305,8 +348,13 @@ void R_ParticleExplosion (vec3_t org)
 			p->type = pt_explode2;
 			for (j=0 ; j<3 ; j++)
 			{
+#if !FIXED_POINT_PARTICLES
 				p->org[j] = org[j] + ((rand()%32)-16);
 				p->vel[j] = (rand()%512)-256;
+#else
+				p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+				p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+#endif
 			}
 		}
 	}
@@ -333,15 +381,25 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 		p->next = active_particles;
 		active_particles = p;
 
+#if !FIXED_POINT_PARTICLES
 		p->die = cl.time + 0.3;
 		p->color = colorStart + (colorMod % colorLength);
+#else
+		p->f16_die = FIXED16_DIE( 0.3 );
+		p->f16_color = colorStart + (colorMod % colorLength);
+#endif
 		colorMod++;
 
 		p->type = pt_blob;
 		for (j=0 ; j<3 ; j++)
 		{
+#if !FIXED_POINT_PARTICLES
 			p->org[j] = org[j] + ((rand()%32)-16);
 			p->vel[j] = (rand()%512)-256;
+#else
+			p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+			p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+#endif
 		}
 	}
 }
@@ -366,20 +424,34 @@ void R_BlobExplosion (vec3_t org)
 		p->next = active_particles;
 		active_particles = p;
 
+#if !FIXED_POINT_PARTICLES
 		p->die = cl.time + 1 + (rand()&8)*0.05;
+#else
+		p->f16_die = FIXED16_DIE(1 + (rand()&8)*0.05);
+#endif
 
 		if (i & 1)
 		{
 			p->type = pt_blob;
+#if !FIXED_POINT_PARTICLES
 			p->color = 66 + rand()%6;
 			for (j=0 ; j<3 ; j++)
 			{
 				p->org[j] = org[j] + ((rand()%32)-16);
 				p->vel[j] = (rand()%512)-256;
 			}
+#else
+			p->f16_color = 66 + rand()%6;
+			for (j=0 ; j<3 ; j++)
+			{
+				p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+				p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+			}
+#endif
 		}
 		else
 		{
+#if !FIXED_POINT_PARTICLES
 			p->type = pt_blob2;
 			p->color = 150 + rand()%6;
 			for (j=0 ; j<3 ; j++)
@@ -387,6 +459,15 @@ void R_BlobExplosion (vec3_t org)
 				p->org[j] = org[j] + ((rand()%32)-16);
 				p->vel[j] = (rand()%512)-256;
 			}
+#else
+			p->type = pt_blob2;
+			p->f16_color = 150 + rand()%6;
+			for (j=0 ; j<3 ; j++)
+			{
+				p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+				p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+			}
+#endif
 		}
 	}
 }
@@ -413,6 +494,7 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 
 		if (count == 1024)
 		{	// rocket explosion
+#if !FIXED_POINT_PARTICLES
 			p->die = cl.time + 5;
 			p->color = ramp1[0];
 			p->ramp = rand()&3;
@@ -434,9 +516,33 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 					p->vel[j] = (rand()%512)-256;
 				}
 			}
+#else
+			p->f16_die = FIXED16_DIE( 5 );
+			p->f16_color = ramp1[0];
+			p->f16_ramp = FIXED16_RAMPF(rand()&3);
+			if (i & 1)
+			{
+				p->type = pt_explode;
+				for (j=0 ; j<3 ; j++)
+				{
+					p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+					p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+				}
+			}
+			else
+			{
+				p->type = pt_explode2;
+				for (j=0 ; j<3 ; j++)
+				{
+					p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()%32)-16) );
+					p->rgf16_vel[j] = FIXED16_VELOCITYF((rand()%512)-256);
+				}
+			}
+#endif
 		}
 		else
 		{
+#if !FIXED_POINT_PARTICLES
 			p->die = cl.time + 0.1*(rand()%5);
 			p->color = (color&~7) + (rand()&7);
 			p->type = pt_slowgrav;
@@ -445,6 +551,16 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 				p->org[j] = org[j] + ((rand()&15)-8);
 				p->vel[j] = dir[j]*15;// + (rand()%300)-150;
 			}
+#else
+			p->f16_die = FIXED16_DIE( 0.1*(rand()%5) );
+			p->f16_color = (color&~7) + (rand()&7);
+			p->type = pt_slowgrav;
+			for (j=0 ; j<3 ; j++)
+			{
+				p->rgf16_org[j] = FIXED16_ORIGIN( org[j] + ((rand()&15)-8) );
+				p->rgf16_vel[j] = FIXED16_VELOCITY(dir[j]*15);
+			}
+#endif
 		}
 	}
 }
@@ -473,22 +589,42 @@ void R_LavaSplash (vec3_t org)
 				free_particles = p->next;
 				p->next = active_particles;
 				active_particles = p;
-		
+#if !FIXED_POINT_PARTICLES
 				p->die = cl.time + 2 + (rand()&31) * 0.02;
 				p->color = 224 + (rand()&7);
+#else
+				p->f16_die = FIXED16_DIE( 2 + (rand()&31) * 0.02 );
+				p->f16_color = 224 + (rand()&7);
+#endif
 				p->type = pt_slowgrav;
 				
 				dir[0] = j*8 + (rand()&7);
 				dir[1] = i*8 + (rand()&7);
 				dir[2] = 256;
 	
+#if !FIXED_POINT_PARTICLES
 				p->org[0] = org[0] + dir[0];
 				p->org[1] = org[1] + dir[1];
 				p->org[2] = org[2] + (rand()&63);
+#else
+				p->rgf16_org[0] = FIXED16_ORIGIN( org[0] + dir[0] );
+				p->rgf16_org[1] = FIXED16_ORIGIN( org[1] + dir[1] );
+				p->rgf16_org[2] = FIXED16_ORIGIN( org[2] + (rand()&63) );
+#endif
 	
-				VectorNormalize (dir);						
+				VectorNormalize (dir);
 				vel = 50 + (rand()&63);
+#if !FIXED_POINT_PARTICLES
 				VectorScale (dir, vel, p->vel);
+#else
+				{
+					vec3_t v_tempvel;
+					VectorScale (dir, vel, v_tempvel);
+					p->rgf16_vel[ 0 ] = FIXED16_VELOCITY( v_tempvel[ 0 ] );
+					p->rgf16_vel[ 1 ] = FIXED16_VELOCITY( v_tempvel[ 1 ] );
+					p->rgf16_vel[ 2 ] = FIXED16_VELOCITY( v_tempvel[ 2 ] );
+				}
+#endif
 			}
 }
 
@@ -516,21 +652,43 @@ void R_TeleportSplash (vec3_t org)
 				p->next = active_particles;
 				active_particles = p;
 		
+#if !FIXED_POINT_PARTICLES
 				p->die = cl.time + 0.2 + (rand()&7) * 0.02;
 				p->color = 7 + (rand()&7);
+#else
+				p->f16_die = FIXED16_DIE( 0.2 + (rand()&7) * 0.02 );
+				p->f16_color = 7 + (rand()&7);
+#endif
 				p->type = pt_slowgrav;
 				
 				dir[0] = j*8;
 				dir[1] = i*8;
 				dir[2] = k*8;
 	
+#if !FIXED_POINT_PARTICLES
 				p->org[0] = org[0] + i + (rand()&3);
 				p->org[1] = org[1] + j + (rand()&3);
 				p->org[2] = org[2] + k + (rand()&3);
+#else
+				p->rgf16_org[0] = FIXED16_ORIGIN( org[0] + i + (rand()&3) );
+				p->rgf16_org[1] = FIXED16_ORIGIN( org[1] + j + (rand()&3) );
+				p->rgf16_org[2] = FIXED16_ORIGIN( org[2] + k + (rand()&3) );
+#endif
 	
 				VectorNormalize (dir);						
 				vel = 50 + (rand()&63);
+
+#if !FIXED_POINT_PARTICLES
 				VectorScale (dir, vel, p->vel);
+#else
+				{
+					vec3_t v_tempvel;
+					VectorScale (dir, vel, v_tempvel);
+					p->rgf16_vel[ 0 ] = FIXED16_VELOCITY( v_tempvel[ 0 ] );
+					p->rgf16_vel[ 1 ] = FIXED16_VELOCITY( v_tempvel[ 1 ] );
+					p->rgf16_vel[ 2 ] = FIXED16_VELOCITY( v_tempvel[ 2 ] );
+				}
+#endif
 			}
 }
 
@@ -564,45 +722,83 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 		p->next = active_particles;
 		active_particles = p;
 		
+#if !FIXED_POINT_PARTICLES
 		VectorCopy (vec3_origin, p->vel);
 		p->die = cl.time + 2;
-
+#else
+		p->rgf16_vel[ 0 ] = p->rgf16_vel[ 1 ] = p->rgf16_vel[ 2 ] = 0;
+		p->f16_die = FIXED16_DIE( 2 );
+#endif
 		switch (type)
 		{
 			case 0:	// rocket trail
+#if !FIXED_POINT_PARTICLES
 				p->ramp = (rand()&3);
 				p->color = ramp3[(int)p->ramp];
 				p->type = pt_fire;
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()%6)-3);
+#else
+				p->f16_ramp = FIXED16_RAMPF((rand()&3));
+				p->f16_color = ramp3[(int)(p->f16_ramp)>>8];
+				p->type = pt_fire;
+				for (j=0 ; j<3 ; j++)
+					p->rgf16_org[j] = FIXED16_ORIGIN( start[j] + ((rand()%6)-3) );
+#endif
 				break;
 
 			case 1:	// smoke smoke
+#if !FIXED_POINT_PARTICLES
 				p->ramp = (rand()&3) + 2;
 				p->color = ramp3[(int)p->ramp];
 				p->type = pt_fire;
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()%6)-3);
+#else
+				p->f16_ramp = FIXED16_RAMPF((rand()&3) + 2);
+				p->f16_color = ramp3[(int)(p->f16_ramp)>>8];
+				p->type = pt_fire;
+				for (j=0 ; j<3 ; j++)
+					p->rgf16_org[j] = FIXED16_ORIGIN( start[j] + ((rand()%6)-3) );
+#endif
 				break;
 
 			case 2:	// blood
+#if !FIXED_POINT_PARTICLES
 				p->type = pt_grav;
 				p->color = 67 + (rand()&3);
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()%6)-3);
+#else
+				p->type = pt_grav;
+				p->f16_color = 67 + (rand()&3);
+				for (j=0 ; j<3 ; j++)
+					p->rgf16_org[j] = FIXED16_ORIGIN( start[j] + ((rand()%6)-3) );
+#endif
 				break;
 
 			case 3:
 			case 5:	// tracer
+#if !FIXED_POINT_PARTICLES
 				p->die = cl.time + 0.5;
 				p->type = pt_static;
 				if (type == 3)
 					p->color = 52 + ((tracercount&4)<<1);
 				else
 					p->color = 230 + ((tracercount&4)<<1);
+#else
+				p->f16_die = FIXED16_DIE( 0.5 );
+				p->type = pt_static;
+				if (type == 3)
+					p->f16_color = 52 + ((tracercount&4)<<1);
+				else
+					p->f16_color = 230 + ((tracercount&4)<<1);
+
+#endif
 			
 				tracercount++;
 
+#if !FIXED_POINT_PARTICLES
 				VectorCopy (start, p->org);
 				if (tracercount & 1)
 				{
@@ -614,26 +810,54 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 					p->vel[0] = 30*-vec[1];
 					p->vel[1] = 30*vec[0];
 				}
+#else
+				p->rgf16_org[ 0 ] = FIXED16_ORIGIN( start[ 0 ] );
+				p->rgf16_org[ 1 ] = FIXED16_ORIGIN( start[ 1 ] );
+				p->rgf16_org[ 2 ] = FIXED16_ORIGIN( start[ 2 ] );
+				if (tracercount & 1)
+				{
+					p->rgf16_vel[0] = FIXED16_VELOCITY( 30*vec[1] );
+					p->rgf16_vel[1] = FIXED16_VELOCITY( 30*-vec[0] );
+				}
+				else
+				{
+					p->rgf16_vel[0] = FIXED16_VELOCITY( 30*-vec[1] );
+					p->rgf16_vel[1] = FIXED16_VELOCITY( 30*vec[0] );
+				}
+#endif
 				break;
 
 			case 4:	// slight blood
 				p->type = pt_grav;
+#if !FIXED_POINT_PARTICLES
 				p->color = 67 + (rand()&3);
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()%6)-3);
+#else
+				p->f16_color = 67 + (rand()&3);
+				for (j=0 ; j<3 ; j++)
+					p->rgf16_org[j] = FIXED16_ORIGIN( start[j] + ((rand()%6)-3) );
+#endif
 				len -= 3;
 				break;
 
 			case 6:	// voor trail
+#if !FIXED_POINT_PARTICLES
 				p->color = 9*16 + 8 + (rand()&3);
 				p->type = pt_static;
 				p->die = cl.time + 0.3;
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()&15)-8);
+#else
+				p->f16_color = 9*16 + 8 + (rand()&3);
+				p->type = pt_static;
+				p->f16_die = FIXED16_DIE( 0.3 );
+				for (j=0 ; j<3 ; j++)
+					p->rgf16_org[j] = FIXED16_ORIGIN( start[j] + ((rand()&15)-8) );
+#endif
 				break;
 		}
 		
-
 		VectorAdd (start, vec, start);
 	}
 }
@@ -655,7 +879,9 @@ void R_DrawParticles (void)
 	float			time1;
 	float			dvel;
 	float			frametime;
-	
+#if FIXED_POINT_PARTICLES
+	fixed16_t f16_frametime, f16_time1, f16_time2, f16_time3, f16_dvel, f16_grav;
+#endif
 #ifdef GLQUAKE
 	vec3_t			up, right;
 	float			scale;
@@ -673,6 +899,18 @@ void R_DrawParticles (void)
 	VectorScale (vright, xscaleshrink, r_pright);
 	VectorScale (vup, yscaleshrink, r_pup);
 	VectorCopy (vpn, r_ppn);
+#if FIXED_POINT_PARTICLES
+	for( i = 0; i < 3; i++ )
+	{
+		r_pright_fixed[ i ] = (int)( r_pright[ i ] * ( float )( 1 << 16 ) );
+		r_pup_fixed[ i ] = (int)( r_pup[ i ] * ( float )( 1 << 16 ) );
+		r_ppn_fixed[ i ] = (int)( r_ppn[ i ] * ( float )( 1 << 16 ) );
+		r_porigin_fixed[ i ] = ( int )( r_origin[ i ] * ( float )( 1 << 8 ) );
+	}
+	pxcenter_fixed = ( (int)( xcenter * 256.0f ) + 128 );
+	pycenter_fixed = ( (int)( ycenter * 256.0f ) + 128 );
+#endif
+
 #endif
 	frametime = cl.time - cl.oldtime;
 	time3 = frametime * 15;
@@ -681,10 +919,28 @@ void R_DrawParticles (void)
 	grav = frametime * sv_gravity.value * 0.05;
 	dvel = 4*frametime;
 	
+#if FIXED_POINT_PARTICLES
+	f16_frametime = FIXED16_DIE( frametime );
+	f16_time1 = FIXED16_DIE( time1 );
+	f16_time2 = FIXED16_DIE( time2 );
+	f16_time3 = FIXED16_DIE( time3 );
+	f16_grav = FIXED16_VELOCITY( grav );
+	f16_dvel = FIXED16_VELOCITY( dvel );
+
+	for (p=active_particles ; p ; p=p->next)
+	{
+		p->f16_die -= f16_frametime;
+	}
+#endif
+
 	for ( ;; ) 
 	{
 		kill = active_particles;
+#if !FIXED_POINT_PARTICLES
 		if (kill && kill->die < cl.time)
+#else
+		if ( kill && kill->f16_die < 0)
+#endif
 		{
 			active_particles = kill->next;
 			kill->next = free_particles;
@@ -699,7 +955,11 @@ void R_DrawParticles (void)
 		for ( ;; )
 		{
 			kill = p->next;
+#if !FIXED_POINT_PARTICLES
 			if (kill && kill->die < cl.time)
+#else
+			if ( kill && kill->f16_die < 0)
+#endif
 			{
 				p->next = kill->next;
 				kill->next = free_particles;
@@ -727,24 +987,41 @@ void R_DrawParticles (void)
 #else
 		D_DrawParticle (p);
 #endif
+
+#if !FIXED_POINT_PARTICLES
 		p->org[0] += p->vel[0]*frametime;
 		p->org[1] += p->vel[1]*frametime;
 		p->org[2] += p->vel[2]*frametime;
+#else
+		p->rgf16_org[0] += FIXED16_ADDVELOCITY( p->rgf16_vel[ 0 ], f16_frametime );
+		p->rgf16_org[1] += FIXED16_ADDVELOCITY( p->rgf16_vel[ 1 ], f16_frametime );
+		p->rgf16_org[2] += FIXED16_ADDVELOCITY( p->rgf16_vel[ 2 ], f16_frametime );
+#endif
 		
 		switch (p->type)
 		{
 		case pt_static:
 			break;
 		case pt_fire:
+#if !FIXED_POINT_PARTICLES
 			p->ramp += time1;
 			if (p->ramp >= 6)
 				p->die = -1;
 			else
 				p->color = ramp3[(int)p->ramp];
 			p->vel[2] += grav;
+#else
+			p->f16_ramp += f16_time1;
+			if (p->f16_ramp >= (6<<8))
+				p->f16_die = -1;
+			else
+				p->f16_color = ramp3[(int)(p->f16_ramp>>8)];
+			p->rgf16_vel[2] += f16_grav;
+#endif
 			break;
 
 		case pt_explode:
+#if !FIXED_POINT_PARTICLES
 			p->ramp += time2;
 			if (p->ramp >=8)
 				p->die = -1;
@@ -753,8 +1030,19 @@ void R_DrawParticles (void)
 			for (i=0 ; i<3 ; i++)
 				p->vel[i] += p->vel[i]*dvel;
 			p->vel[2] -= grav;
+#else
+			p->f16_ramp += f16_time2;
+			if (p->f16_ramp >=8<<8)
+				p->f16_die = -1;
+			else
+				p->f16_color = ramp1[(int)(p->f16_ramp>>8)];
+			for (i=0 ; i<3 ; i++)
+				p->rgf16_vel[i] += FIXED16_ADDVELOCITYV(p->rgf16_vel[i],f16_dvel);
+			p->rgf16_vel[2] -= f16_grav;
+#endif
 			break;
 
+#if !FIXED_POINT_PARTICLES
 		case pt_explode2:
 			p->ramp += time3;
 			if (p->ramp >=8)
@@ -786,6 +1074,39 @@ void R_DrawParticles (void)
 		case pt_slowgrav:
 			p->vel[2] -= grav;
 			break;
+#else
+		case pt_explode2:
+			p->f16_ramp += f16_time3;
+			if (p->f16_ramp >=8<<8)
+				p->f16_die = -1;
+			else
+				p->f16_color = ramp2[(int)p->f16_ramp>>8];
+			for (i=0 ; i<3 ; i++)
+				p->rgf16_vel[i] -= FIXED16_ADDVELOCITY( p->rgf16_vel[i], f16_frametime );
+			p->rgf16_vel[2] -= f16_grav;
+			break;
+
+		case pt_blob:
+			for (i=0 ; i<3 ; i++)
+				p->rgf16_vel[i] += FIXED16_ADDVELOCITYV(p->rgf16_vel[i],f16_dvel);;
+			p->rgf16_vel[2] -= f16_grav;
+			break;
+
+		case pt_blob2:
+			for (i=0 ; i<2 ; i++)
+				p->rgf16_vel[i] -= FIXED16_ADDVELOCITYV(p->rgf16_vel[i],f16_dvel);;
+			p->rgf16_vel[2] -= f16_grav;
+			break;
+
+		case pt_grav:
+#ifdef QUAKE2
+			p->vel[2] -= grav * 20;
+			break;
+#endif
+		case pt_slowgrav:
+			p->rgf16_vel[2] -= f16_grav;
+			break;
+#endif
 		}
 	}
 

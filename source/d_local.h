@@ -66,6 +66,35 @@ extern float	d_sdivzstepu, d_tdivzstepu, d_zistepu;
 extern float	d_sdivzstepv, d_tdivzstepv, d_zistepv;
 extern float	d_sdivzorigin, d_tdivzorigin, d_ziorigin;
 
+#define CALCG_FIXED 1
+extern fixed_spans8_var_package_t s_spans8_var_package;
+
+typedef struct {
+	byte *pdest;
+	byte *pbase;
+	int i_cachewidth;
+	int count;
+	fixed16_t f16_p;
+	fixed16_t f16_stepp;
+
+	fixed16_t f16_sstart;
+	fixed16_t f16_ps;
+	fixed16_t f16_psend;
+	fixed16_t f16_steps;
+
+	fixed16_t f16_tstart;
+	fixed16_t f16_pt;
+	fixed16_t f16_ptend;
+	fixed16_t f16_stept;
+
+	fixed16_t f16_s;
+	fixed16_t f16_t;
+	int i_bbextents;
+	int i_bbextentt;
+} draw_span8_nspire_t;
+
+
+
 fixed16_t	sadjust, tadjust;
 fixed16_t	bbextents, bbextentt;
 

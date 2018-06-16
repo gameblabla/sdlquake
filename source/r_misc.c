@@ -288,7 +288,27 @@ void R_TransformFrustum (void)
 		VectorCopy (v2, view_clipplanes[i].normal);
 
 		view_clipplanes[i].dist = DotProduct (modelorg, v2);
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED
+		view_clipplanes[i].idx = (byte)i;
+#endif
 	}
+
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED
+	for( i = 0; i < 3; i++ )
+	{
+		FIXED_FLOATTOFIXED( vright[i], rgf16_vright[i], 28 );
+		FIXED_FLOATTOFIXED( vup[i], rgf16_vup[i], 28 );
+		FIXED_FLOATTOFIXED( vpn[i], rgf16_vpn[i], 28 );
+		FIXED_FLOATTOFIXED( modelorg[i], rgf16_modelorg[i], 16 );
+	}
+	for (i=0 ; i<4 ; i++)
+	{
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 0 ], view_clipplanes_fixed[i].normal[ 0 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 1 ], view_clipplanes_fixed[i].normal[ 1 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 2 ], view_clipplanes_fixed[i].normal[ 2 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].dist, view_clipplanes_fixed[i].f16_dist, 16 );
+	}
+#endif
 }
 
 

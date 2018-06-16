@@ -25,6 +25,8 @@ extern	byte		gammatable[256];	// palette is sent through this
 extern	byte		ramps[3][256];
 extern float v_blend[4];
 
+extern float scr_blend[4];//angelo screen flashes
+
 extern cvar_t lcd_x;
 
 

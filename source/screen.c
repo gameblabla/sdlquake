@@ -870,6 +870,7 @@ void SCR_UpdateScreen (void)
 //
 // do 3D refresh drawing, and then update the screen
 //
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 	D_EnableBackBufferAccess ();	// of all overlay stuff if drawing directly
 
 	if (scr_fullupdate++ < vid.numpages)
@@ -881,6 +882,7 @@ void SCR_UpdateScreen (void)
 
 	pconupdate = NULL;
 
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 
 	SCR_SetUpToDrawConsole ();
 	SCR_EraseCenterString ();
@@ -888,13 +890,19 @@ void SCR_UpdateScreen (void)
 	D_DisableBackBufferAccess ();	// for adapters that can't stay mapped in
 									//  for linear writes all the time
 
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
+
 	VID_LockBuffer ();
 
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 	V_RenderView ();
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 
 	VID_UnlockBuffer ();
 
 	D_EnableBackBufferAccess ();	// of all overlay stuff if drawing directly
+
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 
 	if (scr_drawdialog)
 	{
@@ -933,12 +941,16 @@ void SCR_UpdateScreen (void)
 		M_Draw ();
 	}
 
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
+
 	D_DisableBackBufferAccess ();	// for adapters that can't stay mapped in
 									//  for linear writes all the time
 	if (pconupdate)
 	{
 		D_UpdateRects (pconupdate);
 	}
+
+	/*printf("in SCR_UpdateScreen %s:%d\n", __FILE__, __LINE__ );*/
 
 	V_UpdatePalette ();
 

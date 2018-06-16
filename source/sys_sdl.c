@@ -26,7 +26,7 @@ qboolean			isDedicated;
 int noconinput = 0;
 
 char *basedir = ".";
-char *cachedir = ".";
+char *cachedir = "";
 
 cvar_t  sys_linerefresh = {"sys_linerefresh","0"};// set for entity display
 cvar_t  sys_nostdout = {"sys_nostdout","0"};

@@ -11,7 +11,7 @@ unsigned short  d_8to16table[256];
 //#define    BASEWIDTH    320
 //#define    BASEHEIGHT   200
 // Much better for high resolution displays
-#define    BASEWIDTH    (320)
+#define    BASEWIDTH    (640)
 #define    BASEHEIGHT   (480)
 
 int    VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;

@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 dprograms_t		*progs;
 dfunction_t		*pr_functions;
-char			*pr_strings;//angelo crash
+char			*pr_strings;
 ddef_t			*pr_fielddefs;
 ddef_t			*pr_globaldefs;
 dstatement_t	*pr_statements;
@@ -191,8 +191,7 @@ ddef_t *ED_FindField (char *name)
 	for (i=0 ; i<progs->numfielddefs ; i++)
 	{
 		def = &pr_fielddefs[i];
-		//if (!strcmp(pr_strings + def->s_name,name) )
-		if (!strcmp(PR_GetString(def->s_name),name) )		
+		if (!strcmp(pr_strings + def->s_name,name) )
 			return def;
 	}
 	return NULL;
@@ -212,8 +211,7 @@ ddef_t *ED_FindGlobal (char *name)
 	for (i=0 ; i<progs->numglobaldefs ; i++)
 	{
 		def = &pr_globaldefs[i];
-		//if (!strcmp(pr_strings + def->s_name,name) )
-		if (!strcmp(PR_GetString(def->s_name),name) )		
+		if (!strcmp(pr_strings + def->s_name,name) )
 			return def;
 	}
 	return NULL;
@@ -233,8 +231,7 @@ dfunction_t *ED_FindFunction (char *name)
 	for (i=0 ; i<progs->numfunctions ; i++)
 	{
 		func = &pr_functions[i];
-		//if (!strcmp(pr_strings + func->s_name,name) )
-		if (!strcmp(PR_GetString(func->s_name),name) )		
+		if (!strcmp(pr_strings + func->s_name,name) )
 			return func;
 	}
 	return NULL;
@@ -290,18 +287,12 @@ char *PR_ValueString (etype_t type, eval_t *val)
 
 	switch (type)
 	{
-		/*
 	case ev_string:
 		sprintf (line, "%s", pr_strings + val->string);
 		break;
-		*/
-	case ev_string:
-		sprintf (line, "%s", PR_GetString(val->string));
-		break;		
 	case ev_entity:	
 		sprintf (line, "entity %i", NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)) );
 		break;
-		/*
 	case ev_function:
 		f = pr_functions + val->function;
 		sprintf (line, "%s()", pr_strings + f->s_name);
@@ -310,15 +301,6 @@ char *PR_ValueString (etype_t type, eval_t *val)
 		def = ED_FieldAtOfs ( val->_int );
 		sprintf (line, ".%s", pr_strings + def->s_name);
 		break;
-		*/
-	case ev_function:
-		f = pr_functions + val->function;
-		sprintf (line, "%s()", PR_GetString(f->s_name));
-		break;
-	case ev_field:
-		def = ED_FieldAtOfs ( val->_int );
-		sprintf (line, ".%s", PR_GetString(def->s_name));
-		break;		
 	case ev_void:
 		sprintf (line, "void");
 		break;
@@ -356,18 +338,13 @@ char *PR_UglyValueString (etype_t type, eval_t *val)
 	type &= ~DEF_SAVEGLOBAL;
 
 	switch (type)
-	{/*
+	{
 	case ev_string:
 		sprintf (line, "%s", pr_strings + val->string);
 		break;
-		*/
-	case ev_string:
-		sprintf (line, "%s", PR_GetString(val->string));
-		break;		
 	case ev_entity:	
 		sprintf (line, "%i", NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)));
 		break;
-		/*
 	case ev_function:
 		f = pr_functions + val->function;
 		sprintf (line, "%s", pr_strings + f->s_name);
@@ -376,15 +353,6 @@ char *PR_UglyValueString (etype_t type, eval_t *val)
 		def = ED_FieldAtOfs ( val->_int );
 		sprintf (line, "%s", pr_strings + def->s_name);
 		break;
-		*/
-	case ev_function:
-		f = pr_functions + val->function;
-		sprintf (line, "%s", PR_GetString(f->s_name));
-		break;
-	case ev_field:
-		def = ED_FieldAtOfs ( val->_int );
-		sprintf (line, "%s", PR_GetString(def->s_name));
-		break;		
 	case ev_void:
 		sprintf (line, "void");
 		break;
@@ -421,12 +389,11 @@ char *PR_GlobalString (int ofs)
 	val = (void *)&pr_globals[ofs];
 	def = ED_GlobalAtOfs(ofs);
 	if (!def)
-		sprintf (line,"%i( ??? )", ofs);
+		sprintf (line,"%i(???)", ofs);
 	else
 	{
 		s = PR_ValueString (def->type, val);
-		//sprintf (line,"%i(%s)%s", ofs, pr_strings + def->s_name, s);
-		sprintf (line,"%i(%s)%s", ofs, PR_GetString(def->s_name), s);		
+		sprintf (line,"%i(%s)%s", ofs, pr_strings + def->s_name, s);
 	}
 	
 	i = strlen(line);
@@ -445,10 +412,9 @@ char *PR_GlobalStringNoContents (int ofs)
 	
 	def = ED_GlobalAtOfs(ofs);
 	if (!def)
-		sprintf (line,"%i( ??? )", ofs);
+		sprintf (line,"%i(???)", ofs);
 	else
-		//sprintf (line,"%i(%s)", ofs, pr_strings + def->s_name);
-		sprintf (line,"%i(%s)", ofs, PR_GetString(def->s_name));	
+		sprintf (line,"%i(%s)", ofs, pr_strings + def->s_name);
 	
 	i = strlen(line);
 	for ( ; i<20 ; i++)
@@ -485,8 +451,7 @@ void ED_Print (edict_t *ed)
 	for (i=1 ; i<progs->numfielddefs ; i++)
 	{
 		d = &pr_fielddefs[i];
-		//name = pr_strings + d->s_name;
-		name = PR_GetString(d->s_name);		
+		name = pr_strings + d->s_name;
 		if (name[strlen(name)-2] == '_')
 			continue;	// skip _x, _y, _z vars
 			
@@ -536,8 +501,7 @@ void ED_Write (FILE *f, edict_t *ed)
 	for (i=1 ; i<progs->numfielddefs ; i++)
 	{
 		d = &pr_fielddefs[i];
-		//name = pr_strings + d->s_name;
-		name = PR_GetString(d->s_name);		
+		name = pr_strings + d->s_name;
 		if (name[strlen(name)-2] == '_')
 			continue;	// skip _x, _y, _z vars
 			
@@ -670,8 +634,7 @@ void ED_WriteGlobals (FILE *f)
 		&& type != ev_entity)
 			continue;
 
-		//name = pr_strings + def->s_name;
-		name = PR_GetString(def->s_name);			
+		name = pr_strings + def->s_name;		
 		fprintf (f,"\"%s\" ", name);
 		fprintf (f,"\"%s\"\n", PR_UglyValueString(type, (eval_t *)&pr_globals[def->ofs]));		
 	}
@@ -776,8 +739,7 @@ qboolean	ED_ParseEpair (void *base, ddef_t *key, char *s)
 	switch (key->type & ~DEF_SAVEGLOBAL)
 	{
 	case ev_string:
-		//*(string_t *)d = ED_NewString (s) - pr_strings;
-		*(string_t *)d = PR_SetString(ED_NewString (s));		
+		*(string_t *)d = ED_NewString (s) - pr_strings;
 		break;
 		
 	case ev_float:
@@ -790,10 +752,17 @@ qboolean	ED_ParseEpair (void *base, ddef_t *key, char *s)
 		w = string;
 		for (i=0 ; i<3 ; i++)
 		{
+			/*printf("%s %s:%d meh\n", __FUNCTION__, __FILE__, __LINE__ );*/
 			while (*v && *v != ' ')
+			{
+				/*printf("%s %s:%d meh %s\n", __FUNCTION__, __FILE__, __LINE__, v );*/
 				v++;
+			}
 			*v = 0;
+			/*printf("%s %s:%d meh %s\n", __FUNCTION__, __FILE__, __LINE__, w );*/
+			/*bkpt();*/
 			((float *)d)[i] = atof (w);
+			/*printf("%s %s:%d mehr %d\n", __FUNCTION__, __FILE__, __LINE__, (int)(((float *)d)[i]) );*/
 			w = v = v+1;
 		}
 		break;
@@ -844,6 +813,8 @@ char *ED_ParseEdict (char *data, edict_t *ent)
 	qboolean	init;
 	char		keyname[256];
 	int			n;
+
+	/*printf("%s %s:%d ENTER\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
 
 	init = false;
 
@@ -914,12 +885,16 @@ strcpy (temp, com_token);
 sprintf (com_token, "0 %s 0", temp);
 }
 
+		/*printf("%s %s:%d ctoken %s\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
 		if (!ED_ParseEpair ((void *)&ent->v, key, com_token))
 			Host_Error ("ED_ParseEdict: parse error");
+		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	}
 
 	if (!init)
 		ent->free = true;
+
+	/*printf("%s %s:%d EXIT\n", __FUNCTION__, __FILE__, __LINE__, com_token );*/
 
 	return data;
 }
@@ -967,6 +942,7 @@ void ED_LoadFromFile (char *data)
 		data = ED_ParseEdict (data, ent);
 
 // remove things from different skill levels or deathmatch
+		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 		if (deathmatch.value)
 		{
 			if (((int)ent->v.spawnflags & SPAWNFLAG_NOT_DEATHMATCH))
@@ -984,6 +960,7 @@ void ED_LoadFromFile (char *data)
 			inhibit++;
 			continue;
 		}
+		/*printf("%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 
 //
 // immediately call spawn function
@@ -995,10 +972,10 @@ void ED_LoadFromFile (char *data)
 			ED_Free (ent);
 			continue;
 		}
+		/*printf("%s %s:%d cname %d\n", __FUNCTION__, __FILE__, __LINE__, ent->v.classname );*/
 
 	// look for the spawn function
-		//func = ED_FindFunction ( pr_strings + ent->v.classname );
-		func = ED_FindFunction ( PR_GetString(ent->v.classname) );		
+		func = ED_FindFunction ( pr_strings + ent->v.classname );
 
 		if (!func)
 		{
@@ -1021,6 +998,8 @@ void ED_LoadFromFile (char *data)
 PR_LoadProgs
 ===============
 */
+int b_break_at_load = 0;
+
 void PR_LoadProgs (void)
 {
 	int		i;
@@ -1029,15 +1008,24 @@ void PR_LoadProgs (void)
 	for (i=0 ; i<GEFV_CACHESIZE ; i++)
 		gefvCache[i].field[0] = 0;
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+
 	CRC_Init (&pr_crc);
+
+	/*printf( "WATCH IT !!!!!!!!!!! %s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+	b_break_at_load = 1;
 
 	progs = (dprograms_t *)COM_LoadHunkFile ("progs.dat");
 	if (!progs)
 		Sys_Error ("PR_LoadProgs: couldn't load progs.dat");
 	Con_DPrintf ("Programs occupy %iK.\n", com_filesize/1024);
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+
 	for (i=0 ; i<com_filesize ; i++)
 		CRC_ProcessByte (&pr_crc, ((byte *)progs)[i]);
+
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 
 // byte swap the header
 	for (i=0 ; i<sizeof(*progs)/4 ; i++)
@@ -1054,11 +1042,14 @@ void PR_LoadProgs (void)
 	pr_fielddefs = (ddef_t *)((byte *)progs + progs->ofs_fielddefs);
 	pr_statements = (dstatement_t *)((byte *)progs + progs->ofs_statements);
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
+
 	pr_global_struct = (globalvars_t *)((byte *)progs + progs->ofs_globals);
 	pr_globals = (float *)pr_global_struct;
 	
 	pr_edict_size = progs->entityfields * 4 + sizeof (edict_t) - sizeof(entvars_t);
 	
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 // byte swap the lumps
 	for (i=0 ; i<progs->numstatements ; i++)
 	{
@@ -1068,6 +1059,7 @@ void PR_LoadProgs (void)
 		pr_statements[i].c = LittleShort(pr_statements[i].c);
 	}
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	for (i=0 ; i<progs->numfunctions; i++)
 	{
 	pr_functions[i].first_statement = LittleLong (pr_functions[i].first_statement);
@@ -1078,6 +1070,7 @@ void PR_LoadProgs (void)
 	pr_functions[i].locals = LittleLong (pr_functions[i].locals);
 	}	
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	for (i=0 ; i<progs->numglobaldefs ; i++)
 	{
 		pr_globaldefs[i].type = LittleShort (pr_globaldefs[i].type);
@@ -1085,6 +1078,7 @@ void PR_LoadProgs (void)
 		pr_globaldefs[i].s_name = LittleLong (pr_globaldefs[i].s_name);
 	}
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	for (i=0 ; i<progs->numfielddefs ; i++)
 	{
 		pr_fielddefs[i].type = LittleShort (pr_fielddefs[i].type);
@@ -1094,6 +1088,7 @@ void PR_LoadProgs (void)
 		pr_fielddefs[i].s_name = LittleLong (pr_fielddefs[i].s_name);
 	}
 
+	/*printf( "%s %s:%d\n", __FUNCTION__, __FILE__, __LINE__ );*/
 	for (i=0 ; i<progs->numglobals ; i++)
 		((int *)pr_globals)[i] = LittleLong (((int *)pr_globals)[i]);
 }

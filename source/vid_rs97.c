@@ -1,121 +1,124 @@
 // vid_sdl.h -- sdl video driver 
 
-#include "SDL.h"
+#include <sys/stat.h>
+#include <sys/dir.h>
+#include <unistd.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
+#include <SDL_image.h>
 #include "quakedef.h"
 #include "d_local.h"
 
-viddef_t    vid;                // global video state
-unsigned short  d_8to16table[256];
+viddef_t vid; // global video state
+unsigned short d_8to16table[256];
 
-#define    BASEWIDTH    320
-#define    BASEHEIGHT   480
+extern uint8_t main_bg[157735];
 
-int    VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
-byte    *VGA_pagebase;
+#define DISABLE_CDROM
 
+// Quake Screen...
+static SDL_Surface *hwscreen = NULL;
 static SDL_Surface *screen = NULL;
 
-static qboolean mouse_avail;
-static float   mouse_x, mouse_y;
-static int mouse_oldbuttonstate = 0;
+int min_vid_width = 320;
+
+int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
+byte *VGA_pagebase;
+
+/* static qboolean mouse_avail;
+static float mouse_x, mouse_y;
+static int mouse_oldbuttonstate = 0; */
+
+//vars for mlook
+float start_yaw;
+float yaw_modifier=0;
 
 // No support for option menus
 void (*vid_menudrawfn)(void) = NULL;
 void (*vid_menukeyfn)(int key) = NULL;
 
-void    VID_SetPalette (unsigned char *palette)
-{
+void VID_SetPalette (unsigned char *palette) {
     int i;
     SDL_Color colors[256];
 
-    for ( i=0; i<256; ++i )
-    {
+    for ( i=0; i<256; ++i ) {
         colors[i].r = *palette++;
         colors[i].g = *palette++;
         colors[i].b = *palette++;
     }
+    //SDL_SetPalette(screen, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 256);
     SDL_SetColors(screen, colors, 0, 256);
 }
 
-void    VID_ShiftPalette (unsigned char *palette)
-{
+void VID_ShiftPalette (unsigned char *palette) {
     VID_SetPalette(palette);
 }
 
-void    VID_Init (unsigned char *palette)
-{
-    int pnum, chunk;
-    byte *cache;
+void VID_Init (unsigned char *palette) {
+
+	int pnum, chunk;
+	byte *cache;
     int cachesize;
-    Uint8 video_bpp;
-    Uint16 video_w, video_h;
-    Uint32 flags;
-
-    // Load the SDL library
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
-        Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
-
-    // Set up display mode (width and height)
-    vid.width = BASEWIDTH;
-    vid.height = BASEHEIGHT;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
-    if ((pnum=COM_CheckParm("-winsize")))
-    {
-        if (pnum >= com_argc-2)
-            Sys_Error("VID: -winsize <width> <height>\n");
-        vid.width = Q_atoi(com_argv[pnum+1]);
-        vid.height = Q_atoi(com_argv[pnum+2]);
-        if (!vid.width || !vid.height)
-            Sys_Error("VID: Bad window width/height\n");
-    }
-
-    // Initialize display 
-	screen = SDL_SetVideoMode(vid.width, vid.height, 8, SDL_HWSURFACE);
     
-    if (!(screen))
-        Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
-        
-    VID_SetPalette(palette);
-    
-    SDL_WM_SetCaption("sdlquake","sdlquake");
-    // now know everything we need to know about the buffer
-    VGA_width = vid.conwidth = vid.width;
-    VGA_height = vid.conheight = vid.height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-    vid.numpages = 1;
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong (*((int *)vid.colormap + 2048));
-    VGA_pagebase = vid.buffer = screen->pixels;
-    VGA_rowbytes = vid.rowbytes = screen->pitch;
-    vid.conbuffer = vid.buffer;
-    vid.conrowbytes = vid.rowbytes;
-    vid.direct = 0;
-    
-    // allocate z buffer and surface cache
-    chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
-    cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
-    chunk += cachesize;
-    d_pzbuffer = Hunk_HighAllocName(chunk, "video");
-    if (d_pzbuffer == NULL)
-        Sys_Error ("Not enough memory for video mode\n");
+	int quit = false;
+	int option = 0;
+	int handle = -1;
 
-    // initialize the cache memory 
-        cache = (byte *) d_pzbuffer
-                + vid.width * vid.height * sizeof (*d_pzbuffer);
-    D_InitCaches (cache, cachesize);
 
-    // initialize the mouse
-    SDL_ShowCursor(0);
+	// Load the SDL library
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0)
+	{
+		Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
+	}
+
+	if(!(hwscreen = SDL_SetVideoMode(320, 480, 16, SDL_SWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
+	{
+		Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
+	}
+
+	// initialize the mouse
+	SDL_ShowCursor(0);
+	
+	vid.width = 320;
+	vid.height = 240;
+	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 8, 0, 0, 0, 0);
+
+	VID_SetPalette(palette);
+	SDL_WM_SetCaption("Quake", "quake");
+
+	// now know everything we need to know about the buffer
+	VGA_width = vid.conwidth = vid.width;
+	VGA_height = vid.conheight = vid.height;
+	vid.aspect = 1.0; 
+	vid.numpages = 1;
+	vid.colormap = host_colormap;
+	vid.fullbright = 256 - LittleLong (*((int *)vid.colormap + 2048));
+	VGA_pagebase = vid.buffer = screen->pixels;
+	VGA_rowbytes = vid.rowbytes = screen->pitch;
+	vid.conbuffer = vid.buffer;
+	vid.conrowbytes = vid.rowbytes;
+	vid.direct = 0;
+    
+	// allocate z buffer and surface cache
+	chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
+	cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
+	chunk += cachesize;
+	d_pzbuffer = Hunk_HighAllocName(chunk, "video");
+
+	if (d_pzbuffer == NULL)
+		Sys_Error ("Not enough memory for video mode\n");
+
+	// initialize the cache memory 
+	cache = (byte *) d_pzbuffer + vid.width * vid.height * sizeof (*d_pzbuffer);
+	D_InitCaches (cache, cachesize);
 }
 
-void    VID_Shutdown (void)
+void    VID_Shutdown (void) 
 {
     SDL_Quit();
 }
 
-void    VID_Update (vrect_t *rects)
-{
+void    VID_Update (vrect_t *rects) {
     SDL_Rect *sdlrects;
     int n, i;
     vrect_t *rect;
@@ -131,15 +134,24 @@ void    VID_Update (vrect_t *rects)
     if (!(sdlrects = (SDL_Rect *)alloca(n*sizeof(*sdlrects))))
         Sys_Error("Out of memory");
     i = 0;
-    for (rect = rects; rect; rect = rect->pnext)
-    {
+
+	for (rect = rects; rect; rect = rect->pnext) {
         sdlrects[i].x = rect->x;
         sdlrects[i].y = rect->y;
         sdlrects[i].w = rect->width;
         sdlrects[i].h = rect->height;
         ++i;
     }
-    SDL_UpdateRects(screen, n, sdlrects);
+
+	//SDL_Flip(screen);
+	//SDL_BlitSurface(screen, 0, hwscreen, 0);
+	//SDL_Flip(hwscreen);
+  {
+    SDL_Surface* p = SDL_ConvertSurface(screen, hwscreen->format, 0);
+    SDL_SoftStretch(p, NULL, hwscreen, NULL);
+    SDL_Flip(hwscreen);
+    SDL_FreeSurface(p);
+  }
 }
 
 /*
@@ -153,7 +165,7 @@ void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height)
 
 
     if (!screen) return;
-    if ( x < 0 ) x = screen->w+x-1;
+    if ( x < 0 ) x = screen->w+x;
     offset = (Uint8 *)screen->pixels + y*screen->pitch + x;
     while ( height-- )
     {
@@ -172,8 +184,8 @@ D_EndDirectRect
 void D_EndDirectRect (int x, int y, int width, int height)
 {
     if (!screen) return;
-    if (x < 0) x = screen->w+x-1;
-    SDL_UpdateRect(screen, x, y, width, height);
+    if (x < 0) x = screen->w+x;
+    //SDL_UpdateRect(screen, x, y, width, height);
 }
 
 
@@ -187,12 +199,10 @@ void Sys_SendKeyEvents(void)
 {
     SDL_Event event;
     int sym, state;
-     int modstate;
+    int modstate;
 
-    while (SDL_PollEvent(&event))
-    {
+    while (SDL_PollEvent(&event)) {
         switch (event.type) {
-
             case SDL_KEYDOWN:
             case SDL_KEYUP:
                 sym = event.key.keysym.sym;
@@ -285,7 +295,7 @@ void Sys_SendKeyEvents(void)
                 Key_Event(sym, state);
                 break;
 
-            /*case SDL_MOUSEMOTION:
+            /* case SDL_MOUSEMOTION:
                 if ( (event.motion.x != (vid.width/2)) ||
                      (event.motion.y != (vid.height/2)) ) {
                     mouse_x = event.motion.xrel*10;
@@ -297,8 +307,8 @@ void Sys_SendKeyEvents(void)
                         SDL_WarpMouse(vid.width/2, vid.height/2);
                     }
                 }
-                break;
-*/
+                break; */
+
             case SDL_QUIT:
                 CL_Disconnect ();
                 Host_ShutdownServer(false);        
@@ -310,29 +320,28 @@ void Sys_SendKeyEvents(void)
     }
 }
 
-void IN_Init (void)
-{
-    /*if ( COM_CheckParm ("-nomouse") )
+void IN_Init (void) {
+    /* if ( COM_CheckParm ("-nomouse") )
         return;
-    mouse_x = mouse_y = 0.0;
-    mouse_avail = 1;*/
+
+	mouse_x = mouse_y = 0.0;
+    mouse_avail = 1; */
 }
 
-void IN_Shutdown (void)
-{
-   /* mouse_avail = 0;*/
+void IN_Shutdown (void) {
+    // mouse_avail = 0;
 }
 
-void IN_Commands (void)
-{
-   /* int i;
+void IN_Commands (void) {
+    /* int i;
     int mouse_buttonstate;
    
-    if (!mouse_avail) return;
+    if (!mouse_avail)
+		return;
    
-    i = SDL_GetMouseState(NULL, NULL);
-
-    mouse_buttonstate = (i & ~0x06) | ((i & 0x02)<<1) | ((i & 0x04)>>1);
+    i = SDL_GetMouseState(NULL, NULL); */
+    /* Quake swaps the second and third buttons */
+    /* mouse_buttonstate = (i & ~0x06) | ((i & 0x02)<<1) | ((i & 0x04)>>1);
     for (i=0 ; i<3 ; i++) {
         if ( (mouse_buttonstate & (1<<i)) && !(mouse_oldbuttonstate & (1<<i)) )
             Key_Event (K_MOUSE1 + i, true);
@@ -340,12 +349,11 @@ void IN_Commands (void)
         if ( !(mouse_buttonstate & (1<<i)) && (mouse_oldbuttonstate & (1<<i)) )
             Key_Event (K_MOUSE1 + i, false);
     }
-    mouse_oldbuttonstate = mouse_buttonstate;*/
+    mouse_oldbuttonstate = mouse_buttonstate; */
 }
 
-void IN_Move (usercmd_t *cmd)
-{
-   /* if (!mouse_avail)
+void IN_Move (usercmd_t *cmd) {
+    /* if (!mouse_avail)
         return;
    
     mouse_x *= sensitivity.value;
@@ -370,7 +378,7 @@ void IN_Move (usercmd_t *cmd)
         else
             cmd->forwardmove -= m_forward.value * mouse_y;
     }
-    mouse_x = mouse_y = 0.0;*/
+    mouse_x = mouse_y = 0.0; */
 }
 
 /*
@@ -378,7 +386,9 @@ void IN_Move (usercmd_t *cmd)
 Sys_ConsoleInput
 ================
 */
-char *Sys_ConsoleInput (void)
-{
+char *Sys_ConsoleInput (void) {
     return 0;
+}
+
+void GpError(char *text, int hold){
 }
