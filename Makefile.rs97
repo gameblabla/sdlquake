@@ -20,8 +20,8 @@ SDL_LIBS    := $(shell $(SYSROOT)/usr/bin/sdl-config --libs)
 PROGRAM = sdlquake.dge
 
 # Linker
-LDFLAGS = $(SDL_LIBS) -s -lm
-CFLAGS = -Ofast -mips32 -mno-mips16 -ffast-math -funroll-loops -falign-loops=2 -falign-jumps=2 -falign-functions=2 -fno-strict-aliasing $(SDL_CFLAGS)
+LDFLAGS = $(SDL_LIBS) -Wl,--as-needed -Wl,--gc-sections -flto -s -lm
+CFLAGS = -O2 -mips32 -mno-mips16 -fdata-sections -ffunction-sections $(SDL_CFLAGS)
 CXXFLAGS = 
 
 # Include
