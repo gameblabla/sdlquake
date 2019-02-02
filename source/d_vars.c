@@ -36,20 +36,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 float	d_sdivzstepu, d_tdivzstepu, d_zistepu;
 float	d_sdivzstepv, d_tdivzstepv, d_zistepv;
 float	d_sdivzorigin, d_tdivzorigin, d_ziorigin;
-#ifdef USE_PQ_OPT3
-int		d_sdivzstepu_fxp, d_tdivzstepu_fxp, d_zistepu_fxp;
-int		d_sdivzstepv_fxp, d_tdivzstepv_fxp, d_zistepv_fxp;
-int		d_sdivzorigin_fxp, d_tdivzorigin_fxp, d_ziorigin_fxp;
-#endif
 
-int d_ziorigin_fxp, d_zistepv_fxp, d_zistepu_fxp;
 
-#ifdef USE_PQ_OPT
-//JB: Optimization
-int sdivzstepu, tdivzstepu, zistepu;
-int sdivzstepv, tdivzstepv, zistepv;
-int sdivzorigin, tdivzorigin, ziorigin;
-#endif
+fixed_spans8_var_package_t s_spans8_var_package;
 
 fixed16_t	sadjust, tadjust, bbextents, bbextentt;
 

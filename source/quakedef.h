@@ -1,6 +1,3 @@
-#ifndef _QUAKEDEF_H
-#define _QUAKEDEF_H
-
 /*
 Copyright (C) 1996-1997 Id Software, Inc.
 
@@ -11,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -22,61 +19,63 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // quakedef.h -- primary header for client
 
-#define USE_PQ_OPT1		//Uses the fixed point R_EmitEdge_fxp function.
-#define USE_PQ_OPT2
-//#define USE_PQ_OPT3	//In progress, don't use.
-#define USE_PQ_OPT4		//Uses the fixed point D_PolysetCalcGradients function.
-#define USE_PQ_OPT5		//Uses the fixed point D_DrawSpans8 (partially from Jacco Biker)
+#include <stdarg.h>
 
-#define MIN_VID_HEIGHT 180
-
-#define SDL 1
+//#define	GLTEST			// experimental stuff
 
 #define	QUAKE_GAME			// as opposed to utilities
 
-#define GP2X_VERSION            1.02
-#define	VERSION			0.01
+#define	VERSION				1.09
 #define	GLQUAKE_VERSION		1.00
 #define	D3DQUAKE_VERSION	0.01
 #define	WINQUAKE_VERSION	0.996
 #define	LINUX_VERSION		1.30
 #define	X11_VERSION			1.10
-#define	POCKETQUAKE_VERSION	0.062
 
-// Yoda
-#ifdef SHx
-#define DISABLE_OPTIMIZATION optimize("g",off)
-#define ENABLE_OPTIMIZATION optimize("g",on)
-#else
-#define DISABLE_OPTIMIZATION
-#define ENABLE_OPTIMIZATION
-#endif
-
-typedef signed long long int    __int64;
-typedef unsigned short          WORD;
-typedef	unsigned int            DWORD;
-typedef	unsigned int *		PDWORD;
-
-//define	PARANOID 			// speed sapping error checking
+//define	PARANOID			// speed sapping error checking
 
 #ifdef QUAKE2
 #define	GAMENAME	"id1"		// directory to look in by default
 #else
-#define	GAMENAME "id1"
+#define	GAMENAME	"id1"
 #endif
 
+
+#define NSPIRE_SMALL_OPTS 1
+
+#ifdef FORNSPIRE
+#define atof atof_dummy_syscall
+/*
+#define vsprintf vsprintf_dummy_syscall
+#define sprintf sprintf_dummy_syscall
+*/
+
+#include <os.h>
+#include <setjmp.h>
 #include <math.h>
 
+#undef atof
+/*#undef vsprintf
+#undef sprintf*/
+
+double atof( const char *str );
+/*
+#define vsprintf Q_vsprintf
+#define sprintf Q_sprintf
+*/
+
+#else
+#include <math.h>
 #include <string.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <stdarg.h>
 #include <setjmp.h>
+#endif
 
-#include <assert.h>
+#include "nspire_math.h"
 
-#if defined(_WIN32) && !defined(WINDED)
+#if defined(_WIN32) && !defined(WINDED) && !defined(WIN32FORNSPIRE)
 
 #if defined(_M_IX86)
 #define __i386__	1
@@ -92,11 +91,11 @@ void	VID_UnlockBuffer (void);
 
 #endif
 
-//#if defined __i386__ // && !defined __sun__
-//#define id386	1
-//#else
+#if defined __i386__ // && !defined __sun__
 #define id386	0
-//#endif
+#else
+#define id386	0
+#endif
 
 #if id386
 #define UNALIGNED_OK	1	// set to 0 if unaligned accesses are not supported
@@ -124,8 +123,8 @@ void	VID_UnlockBuffer (void);
 #define	ROLL	2
 
 
-#define	MAX_QPATH		128			// max length of a quake game pathname
-#define	MAX_OSPATH		512			// max length of a filesystem pathname
+#define	MAX_QPATH		64			// max length of a quake game pathname
+#define	MAX_OSPATH		128			// max length of a filesystem pathname
 
 #define	ON_EPSILON		0.1			// point on plane side epsilon
 
@@ -240,9 +239,6 @@ void	VID_UnlockBuffer (void);
 // Use for multiplayer testing only - VERY dangerous!!!
 // #define IDGODS
 
-//Dan East:
-//#include "FixedPointMath.h"
-
 #include "common.h"
 #include "bspfile.h"
 #include "vid.h"
@@ -261,17 +257,6 @@ typedef struct
 	int		effects;
 } entity_state_t;
 
-typedef struct
-{
-	vec3_FPM_t	origin;
-	vec3_FPM_t	angles;
-	int		modelindex;
-	int		frame;
-	int		colormap;
-	int		skin;
-	int		effects;
-} entity_state_FPM_t;
-
 
 #include "wad.h"
 #include "draw.h"
@@ -287,12 +272,12 @@ typedef struct
 #include "progs.h"
 #include "server.h"
 
-//#ifdef GLQUAKE
-//#include "gl_model.h"
-//#else
+#ifdef GLQUAKE
+#include "gl_model.h"
+#else
 #include "model.h"
 #include "d_iface.h"
-//#endif
+#endif
 
 #include "input.h"
 #include "world.h"
@@ -303,21 +288,9 @@ typedef struct
 #include "crc.h"
 #include "cdaudio.h"
 
-//#ifdef GLQUAKE
-//#include "glquake.h"
-//#endif
-
-#include "cpu.h"
-#include "slist.h"
-
-int command_kayboard;
-
-int r2_cpu;
-int r2_mod;
-
-extern qboolean mouse_avail;
-extern float   mouse_x, mouse_y;
-extern int mouse_oldbuttonstate;
+#ifdef GLQUAKE
+#include "glquake.h"
+#endif
 
 //=============================================================================
 
@@ -331,7 +304,7 @@ typedef struct
 	char	*cachedir;		// for development over ISDN lines
 	int		argc;
 	char	**argv;
-        void    *membase;
+	void	*membase;
 	int		memsize;
 } quakeparms_t;
 
@@ -358,22 +331,11 @@ extern	byte		*host_basepal;
 extern	byte		*host_colormap;
 extern	int			host_framecount;	// incremented every frame, never reset
 extern	double		realtime;			// not bounded in any way, changed at
-
 										// start of every frame, never reset
-/*
-extern finalvert_t	*finalverts;
-extern auxvert_t	*auxverts;
-extern spanpackage_t	*spans;
-extern edge_t		*ledges;
-extern surf_t		*lsurfs;
-extern byte		*basespans;
-*/
 
 void Host_ClearMemory (void);
-void Host_ClearMemoryFPM (void);
 void Host_ServerFrame (void);
 void Host_InitCommands (void);
-void Host_InitCommandsFPM (void);
 void Host_Init (quakeparms_t *parms);
 void Host_Shutdown(void);
 void Host_Error (char *error, ...);
@@ -381,9 +343,7 @@ void Host_EndGame (char *message, ...);
 void Host_Frame (float time);
 void Host_Quit_f (void);
 void Host_ClientCommands (char *fmt, ...);
-void Host_ClientCommandsFPM (char *fmt, ...);
 void Host_ShutdownServer (qboolean crash);
-void Host_ShutdownServerFPM (qboolean crash);
 
 extern qboolean		msg_suppress_1;		// suppresses resolution and cache size console output
 										//  an fullscreen DIB focus gain/loss
@@ -403,6 +363,3 @@ extern	cvar_t	chase_active;
 void Chase_Init (void);
 void Chase_Reset (void);
 void Chase_Update (void);
-void Chase_UpdateFPM (void);
-
-#endif

@@ -48,9 +48,9 @@ void D_FillRect (vrect_t *rect, int color)
 		rheight += ry;
 		ry = 0;
 	}
-	if (rx+rwidth > (int)vid.width)		//Dan: added cast to prevent warning
+	if (rx+rwidth > vid.width)
 		rwidth = vid.width - rx;
-	if (ry+rheight > (int)vid.height)	//Dan: added cast to prevent warning
+	if (ry+rheight > vid.height)
 		rheight = vid.height - rx;
 		
 	if (rwidth < 1 || rheight < 1)

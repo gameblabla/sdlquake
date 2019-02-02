@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -28,12 +28,13 @@ cvar_t	d_subdiv16 = {"d_subdiv16", "1"};
 cvar_t	d_mipcap = {"d_mipcap", "0"};
 cvar_t	d_mipscale = {"d_mipscale", "1"};
 
-surfcache_t			*d_initial_rover;
-qboolean			d_roverwrapped;
-int					d_minmip;
-float				d_scalemip[NUM_MIPS-1];
+surfcache_t		*d_initial_rover;
+qboolean		d_roverwrapped;
+int				d_minmip;
+float			d_scalemip[NUM_MIPS-1];
 
-static float		basemip[NUM_MIPS-1] = {(float)1.0, (float)(0.5*0.8), (float)(0.25*0.8)};
+static float	basemip[NUM_MIPS-1] = {1.0, 0.5*0.8, 0.25*0.8};
+
 extern int			d_aflatcolor;
 
 void (*d_drawspans) (espan_t *pspan);
@@ -54,11 +55,13 @@ void D_Init (void)
 	Cvar_RegisterVariable (&d_mipscale);
 
 	r_drawpolys = false;
+	r_drawculledpolys = false;
 	r_worldpolysbacktofront = false;
 	r_recursiveaffinetriangles = true;
 	r_pixbytes = 1;
 	r_aliasuvscale = 1.0;
 }
+
 
 /*
 ===============
@@ -134,7 +137,7 @@ void D_SetupFrame (void)
 	d_roverwrapped = false;
 	d_initial_rover = sc_rover;
 
-	d_minmip = (int)d_mipcap.value;
+	d_minmip = d_mipcap.value;
 	if (d_minmip > 3)
 		d_minmip = 3;
 	else if (d_minmip < 0)
@@ -143,17 +146,18 @@ void D_SetupFrame (void)
 	for (i=0 ; i<(NUM_MIPS-1) ; i++)
 		d_scalemip[i] = basemip[i] * d_mipscale.value;
 
-/*#if	id386
+#if	id386
 				if (d_subdiv16.value)
 					d_drawspans = D_DrawSpans16;
 				else
 					d_drawspans = D_DrawSpans8;
-#else*/
+#else
 				d_drawspans = D_DrawSpans8;
-//#endif
+#endif
 
 	d_aflatcolor = 0;
 }
+
 
 /*
 ===============

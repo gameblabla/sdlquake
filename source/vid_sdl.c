@@ -3,31 +3,41 @@
 #include <sys/stat.h>
 #include <sys/dir.h>
 #include <unistd.h>
-#include <SDL.h>
-#include <SDL_ttf.h>
-#include <SDL_image.h>
+#include <SDL/SDL.h>
 #include "quakedef.h"
 #include "d_local.h"
 
+#if defined(PAP_K3S)
+#define REAL_WIDTH 800
+#define REAL_HEIGHT 480
+#elif defined(ARCADE_MINI)
+#define REAL_WIDTH 480
+#define REAL_HEIGHT 272
+#else
+#define REAL_WIDTH 320
+#define REAL_HEIGHT 240
+#endif
+
 viddef_t vid; // global video state
-unsigned short d_8to16table[256];
+uint16_t d_8to16table[256];
 
 extern uint8_t main_bg[157735];
 
 #define DISABLE_CDROM
+#define DISABLE_MOUSE
 
 // Quake Screen...
-static SDL_Surface *hwscreen = NULL;
-static SDL_Surface *screen = NULL;
+static SDL_Surface *hwscreen = NULL, *screen = NULL;
+uint32_t min_vid_width = REAL_WIDTH;
 
-int min_vid_width = 320;
-
-int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
+uint32_t VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 byte *VGA_pagebase;
 
-/* static qboolean mouse_avail;
+#ifndef DISABLE_MOUSE
+static qboolean mouse_avail;
 static float mouse_x, mouse_y;
-static int mouse_oldbuttonstate = 0; */
+static int mouse_oldbuttonstate = 0;
+#endif
 
 //vars for mlook
 float start_yaw;
@@ -55,31 +65,29 @@ void VID_ShiftPalette (unsigned char *palette) {
 }
 
 void VID_Init (unsigned char *palette) {
-	int pnum, chunk;
+	int32_t pnum, chunk;
 	byte *cache;
-    int cachesize;
-
-
-	int quit = false;
-	int option = 0;
-	int handle = -1;
+    int32_t cachesize;
+	int32_t quit = false;
+	int32_t option = 0;
+	int32_t handle = -1;
 	
-  // Load the SDL library
-	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) != 0){
-	Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
+	// Load the SDL library
+	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) != 0)
+	{
+		Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
 	}
 
-  //if (!(hwscreen = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
-	if(!(hwscreen = SDL_SetVideoMode(320, 480, 16, SDL_SWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE))){
-	Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
+	if(!(hwscreen = SDL_SetVideoMode(REAL_WIDTH, REAL_HEIGHT, 16, SDL_HWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
+	{
+		Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
 	}
-
 
 	// initialize the mouse
 	SDL_ShowCursor(0);
 
-	vid.width = 320;
-	vid.height = 240;
+	vid.width = REAL_WIDTH;
+	vid.height = REAL_HEIGHT;
 	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 8, 0, 0, 0, 0);
 
 	VID_SetPalette(palette);
@@ -141,15 +149,10 @@ void    VID_Update (vrect_t *rects) {
         ++i;
     }
 
-	//SDL_Flip(screen);
-	//SDL_BlitSurface(screen, 0, hwscreen, 0);
-	//SDL_Flip(hwscreen);
-  {
-    SDL_Surface* p = SDL_ConvertSurface(screen, hwscreen->format, 0);
-    SDL_SoftStretch(p, NULL, hwscreen, NULL);
-    SDL_Flip(hwscreen);
-    SDL_FreeSurface(p);
-  }
+	SDL_Surface* p = SDL_DisplayFormat(screen);
+	SDL_BlitSurface(p, NULL, hwscreen, NULL);
+	SDL_Flip(hwscreen);
+	SDL_FreeSurface(p);
 }
 
 /*
@@ -160,10 +163,9 @@ D_BeginDirectRect
 void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height)
 {
     Uint8 *offset;
-
-
     if (!screen) return;
     if ( x < 0 ) x = screen->w+x-1;
+    
     offset = (Uint8 *)screen->pixels + y*screen->pitch + x;
     while ( height-- )
     {
@@ -293,7 +295,8 @@ void Sys_SendKeyEvents(void)
                 Key_Event(sym, state);
                 break;
 
-            /* case SDL_MOUSEMOTION:
+				#ifndef DISABLE_MOUSE
+				case SDL_MOUSEMOTION:
                 if ( (event.motion.x != (vid.width/2)) ||
                      (event.motion.y != (vid.height/2)) ) {
                     mouse_x = event.motion.xrel*10;
@@ -305,7 +308,8 @@ void Sys_SendKeyEvents(void)
                         SDL_WarpMouse(vid.width/2, vid.height/2);
                     }
                 }
-                break; */
+                break;
+                #endif
 
             case SDL_QUIT:
                 CL_Disconnect ();
@@ -319,27 +323,32 @@ void Sys_SendKeyEvents(void)
 }
 
 void IN_Init (void) {
-    /* if ( COM_CheckParm ("-nomouse") )
+#ifndef DISABLE_MOUSE
+	if ( COM_CheckParm ("-nomouse") )
         return;
 
 	mouse_x = mouse_y = 0.0;
-    mouse_avail = 1; */
+    mouse_avail = 1;
+#endif
 }
 
 void IN_Shutdown (void) {
-    // mouse_avail = 0;
+#ifndef DISABLE_MOUSE
+	mouse_avail = 0;
+#endif
 }
 
 void IN_Commands (void) {
-    /* int i;
+#ifndef DISABLE_MOUSE
+	int i;
     int mouse_buttonstate;
    
     if (!mouse_avail)
 		return;
    
-    i = SDL_GetMouseState(NULL, NULL); */
+    i = SDL_GetMouseState(NULL, NULL);
     /* Quake swaps the second and third buttons */
-    /* mouse_buttonstate = (i & ~0x06) | ((i & 0x02)<<1) | ((i & 0x04)>>1);
+    mouse_buttonstate = (i & ~0x06) | ((i & 0x02)<<1) | ((i & 0x04)>>1);
     for (i=0 ; i<3 ; i++) {
         if ( (mouse_buttonstate & (1<<i)) && !(mouse_oldbuttonstate & (1<<i)) )
             Key_Event (K_MOUSE1 + i, true);
@@ -347,11 +356,13 @@ void IN_Commands (void) {
         if ( !(mouse_buttonstate & (1<<i)) && (mouse_oldbuttonstate & (1<<i)) )
             Key_Event (K_MOUSE1 + i, false);
     }
-    mouse_oldbuttonstate = mouse_buttonstate; */
+    mouse_oldbuttonstate = mouse_buttonstate;
+#endif
 }
 
 void IN_Move (usercmd_t *cmd) {
-    /* if (!mouse_avail)
+#ifndef DISABLE_MOUSE
+	if (!mouse_avail)
         return;
    
     mouse_x *= sensitivity.value;
@@ -376,7 +387,8 @@ void IN_Move (usercmd_t *cmd) {
         else
             cmd->forwardmove -= m_forward.value * mouse_y;
     }
-    mouse_x = mouse_y = 0.0; */
+    mouse_x = mouse_y = 0.0;
+#endif
 }
 
 /*

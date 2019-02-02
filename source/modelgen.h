@@ -34,11 +34,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <math.h>
 #include <string.h>
 
-//#include "cmdlib.h"
-//#include "scriplib.h"
-//#include "trilib.h"
-//#include "lbmlib.h"
-//#include "mathlib.h"
+#include "cmdlib.h"
+#include "scriplib.h"
+#include "trilib.h"
+#include "lbmlib.h"
+#include "mathlib.h"
 
 #endif
 
@@ -49,12 +49,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // must match definition in spritegn.h
 #ifndef SYNCTYPE_T
 #define SYNCTYPE_T
-typedef enum {ST_SYNC=0, ST_RAND } synctype_t;
+typedef enum {ST_SYNC=0, ST_RAND, ST_DUMMY=0x10000 } synctype_t;
 #endif
 
-typedef enum { ALIAS_SINGLE=0, ALIAS_GROUP } aliasframetype_t;
+typedef enum { ALIAS_SINGLE=0, ALIAS_GROUP, ALIAS_DUMMY = 0x10000 } aliasframetype_t;
 
-typedef enum { ALIAS_SKIN_SINGLE=0, ALIAS_SKIN_GROUP } aliasskintype_t;
+typedef enum { ALIAS_SKIN_SINGLE=0, ALIAS_SKIN_GROUP, ALIAS_SKIN_DUMMY = 0x10000 } aliasskintype_t;
 
 typedef struct {
 	int			ident;
@@ -73,25 +73,6 @@ typedef struct {
 	int			flags;
 	float		size;
 } mdl_t;
-
-//Dan East:
-typedef struct {
-	int			ident;
-	int			version;
-	vec3_FPM_t		scale;
-	vec3_FPM_t		scale_origin;
-	fixedpoint_t	boundingradius;
-	vec3_FPM_t		eyeposition;
-	int			numskins;
-	int			skinwidth;
-	int			skinheight;
-	int			numverts;
-	int			numtris;
-	int			numframes;
-	synctype_t	synctype;
-	int			flags;
-	fixedpoint_t	size;
-} mdl_FPM_t;
 
 // TODO: could be shorts
 
@@ -135,11 +116,7 @@ typedef struct {
 typedef struct {
 	float	interval;
 } daliasinterval_t;
-/*
-typedef struct {
-	fixedpoint_t	interval;
-} daliasinterval_FPM_t;
-*/
+
 typedef struct {
 	float	interval;
 } daliasskininterval_t;

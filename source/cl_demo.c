@@ -20,12 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
-//Dan
-//#include "../zlib/zlib.h"
-#ifdef _X86_
-#include "../LogFloat.h"
-#endif
-
 void CL_FinishTimeDemo (void);
 
 /*
@@ -53,7 +47,6 @@ void CL_StopPlayback (void)
 	if (!cls.demoplayback)
 		return;
 
-	//Dan:
 	fclose (cls.demofile);
 	cls.demoplayback = false;
 	cls.demofile = NULL;
@@ -112,7 +105,7 @@ int CL_GetMessage (void)
 			// if this is the second frame, grab the real td_starttime
 			// so the bogus time on the first frame doesn't count
 				if (host_framecount == cls.td_startframe + 1)
-					cls.td_starttime = (float)realtime;
+					cls.td_starttime = realtime;
 			}
 			else if ( /* cl.time > 0 && */ cl.time <= cl.mtime[0])
 			{
@@ -133,7 +126,7 @@ int CL_GetMessage (void)
 		if (net_message.cursize > MAX_MSGLEN)
 			Sys_Error ("Demo message > MAX_MSGLEN");
 		r = fread (net_message.data, net_message.cursize, 1, cls.demofile);
-		if (r != /*net_message.cursize*/1)
+		if (r != 1)
 		{
 			CL_StopPlayback ();
 			return 0;
@@ -161,6 +154,7 @@ int CL_GetMessage (void)
 	
 	return r;
 }
+
 
 /*
 ====================
@@ -247,7 +241,11 @@ void CL_Record_f (void)
 //
 // open the demo file
 //
+#if !FORNSPIRE
 	COM_DefaultExtension (name, ".dem");
+#else
+	COM_DefaultExtension (name, ".dem.tns");
+#endif
 
 	Con_Printf ("recording to %s.\n", name);
 	cls.demofile = fopen (name, "wb");
@@ -264,14 +262,6 @@ void CL_Record_f (void)
 }
 
 
-// Demos disabled at start to allow game to play. Playdemo command remapped to gpplaydemo so this function allows for silent fail of playdemo command.
-
-void CL_PlayDemo_silentfail (void)
-{
-
-}
-
-
 /*
 ====================
 CL_PlayDemo_f
@@ -284,7 +274,6 @@ void CL_PlayDemo_f (void)
 	char	name[256];
 	int c;
 	qboolean neg = false;
-
 
 	if (cmd_source != src_command)
 		return;
@@ -319,7 +308,7 @@ void CL_PlayDemo_f (void)
 	cls.state = ca_connected;
 	cls.forcetrack = 0;
 
-	while ((c = fgetc(cls.demofile)) != '\n')
+	while ((c = getc(cls.demofile)) != '\n')
 		if (c == '-')
 			neg = true;
 		else
@@ -346,27 +335,10 @@ void CL_FinishTimeDemo (void)
 	
 // the first frame didn't count
 	frames = (host_framecount - cls.td_startframe) - 1;
-	time = (float)(realtime - cls.td_starttime);
+	time = realtime - cls.td_starttime;
 	if (!time)
 		time = 1;
 	Con_Printf ("%i frames %5.1f seconds %5.1f fps\n", frames, time, frames/time);
-
-#ifdef _X86_
-	//Dan East:
-	//The following generates Floating Point totals if floating point logging was performed
-	LogFloatResults("\\LogFloat.txt");
-#endif
-/*
-	//Dan East:
-	//The following is used to popup a message box with the timedemo results.
-	//The purpose of this is to make the results known when screen output is
-	//disabled (in the case of various benchmark testing).
-	{
-		TCHAR s[250];
-		_stprintf(s, _T("%i frames %5.1f seconds %5.1f fps\n"), frames, time, frames/time);
-		MessageBox(NULL, s, _T("TimeDemo Results"), MB_OK);
-	}
-*/
 }
 
 /*

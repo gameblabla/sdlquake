@@ -24,20 +24,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define MAX_LBM_HEIGHT	480
 
+#define FIXED_POINT_PARTICLES 1
+
 typedef struct
 {
 	float	u, v;
 	float	s, t;
 	float	zi;
 } emitpoint_t;
-/*
-typedef struct
-{
-	fixedpoint_t	u, v;
-	fixedpoint_t	s, t;
-	fixedpoint_t	zi;
-} emitpoint_FPM_t;
-*/
+
 typedef enum {
 	pt_static, pt_grav, pt_slowgrav, pt_fire, pt_explode, pt_explode2, pt_blob, pt_blob2
 } ptype_t;
@@ -46,60 +41,45 @@ typedef enum {
 typedef struct particle_s
 {
 // driver-usable fields
+#if !FIXED_POINT_PARTICLES
 	vec3_t		org;
 	float		color;
+#else
+	fixed16_t   rgf16_org[ 3 ];
+	fixed16_t   f16_color;
+#endif
 // drivers never touch the following fields
 	struct particle_s	*next;
+#if !FIXED_POINT_PARTICLES
 	vec3_t		vel;
 	float		ramp;
 	float		die;
+#else
+	fixed16_t   rgf16_vel[ 3 ];
+	fixed16_t	f16_ramp;
+	fixed16_t 	f16_die;
+#endif
 	ptype_t		type;
 } particle_t;
-/*
-typedef struct particle_FPM_s
-{
-// driver-usable fields
-	vec3_FPM_t	org;
-	//Dan: why is color defined as a float? Changed to int.
-	int	color;
-// drivers never touch the following fields
-	struct particle_FPM_s	*next;
-	vec3_FPM_t	vel;
-	fixedpoint_t	ramp;
-	fixedpoint_t	die;
-	ptype_t		type;
-} particle_FPM_t;
-*/
+
 #define PARTICLE_Z_CLIP	8.0
-//#define PARTICLE_Z_CLIP_FPM	FPM_FROMFLOAT(8.0)
 
 typedef struct polyvert_s {
 	float	u, v, zi, s, t;
 } polyvert_t;
-/*
-typedef struct polyvert_FPM_s {
-	fixedpoint_t	u, v, zi, s, t;
-} polyvert_FPM_t;
-*/
+
 typedef struct polydesc_s {
 	int			numverts;
 	float		nearzi;
 	msurface_t	*pcurrentface;
 	polyvert_t	*pverts;
 } polydesc_t;
-/*
-typedef struct polydesc_FPM_s {
-	int			numverts;
-	fixedpoint_t	nearzi;
-	msurface_FPM_t	*pcurrentface;
-	polyvert_FPM_t	*pverts;
-} polydesc_FPM_t;
-*/
+
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
 typedef struct finalvert_s {
 	int		v[6];		// u, v, s, t, l, 1/z
 	int		flags;
-//	float	reserved;
+	float	reserved;
 } finalvert_t;
 
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
@@ -123,40 +103,29 @@ typedef struct {
 
 typedef struct
 {
-	int				nump;
-	emitpoint_t		*pverts;// there's room for an extra element at [nump], 
+	int			nump;
+	emitpoint_t	*pverts;	// there's room for an extra element at [nump], 
 							//  if the driver wants to duplicate element [0] at
 							//  element [nump] to avoid dealing with wrapping
 	mspriteframe_t	*pspriteframe;
 	vec3_t			vup, vright, vpn;	// in worldspace
 	float			nearzi;
 } spritedesc_t;
-/*
-typedef struct
-{
-	int					nump;
-	emitpoint_FPM_t		*pverts;	// there's room for an extra element at [nump], 
-								//  if the driver wants to duplicate element [0] at
-								//  element [nump] to avoid dealing with wrapping
-	mspriteframe_FPM_t	*pspriteframe;
-	vec3_FPM_t			vup, vright, vpn;	// in worldspace
-	fixedpoint_t		nearzi;
-} spritedesc_FPM_t;
-*/
+
 typedef struct
 {
 	int		u, v;
 	float	zi;
 	int		color;
 } zpointdesc_t;
-/*
-typedef struct
-{
-	int				u, v;
-	fixedpoint_t	zi;
-	int				color;
-} zpointdesc_FPM_t;
-*/
+
+typedef struct {
+	fixed32_t f32_sdivzstepu, f32_tdivzstepu, f32_zistepu;
+	fixed32_t f32_sdivzstepv, f32_tdivzstepv, f32_zistepv;
+	fixed32_t f32_sdivzorigin, f32_tdivzorigin, f32_ziorigin;
+} fixed_spans8_var_package_t;
+
+
 extern cvar_t	r_drawflat;
 extern int		d_spanpixcount;
 extern int		r_framecount;		// sequence # of current frame since Quake
@@ -175,16 +144,14 @@ extern qboolean	r_recursiveaffinetriangles;	// true if a driver wants to use
 											//  a certain distance (normally 
 											//  only used by the software
 											//  driver)
-extern float		r_aliasuvscale;		// scale-up factor for screen u and v
-//extern fixedpoint_t	r_aliasuvscaleFPM;	//  on Alias vertices passed to driver
+extern float	r_aliasuvscale;		// scale-up factor for screen u and v
+									//  on Alias vertices passed to driver
 extern int		r_pixbytes;
 extern qboolean	r_dowarp;
 
 extern affinetridesc_t	r_affinetridesc;
 extern spritedesc_t		r_spritedesc;
-//extern spritedesc_FPM_t	r_spritedescFPM;
 extern zpointdesc_t		r_zpointdesc;
-//extern zpointdesc_FPM_t	r_zpointdescFPM;
 extern polydesc_t		r_polydesc;
 
 extern int		d_con_indirect;	// if 0, Quake will draw console directly
@@ -193,7 +160,7 @@ extern int		d_con_indirect;	// if 0, Quake will draw console directly
 								//  defined by driver
 
 extern vec3_t	r_pright, r_pup, r_ppn;
-//extern vec3_FPM_t	r_prightFPM, r_pupFPM, r_ppnFPM;
+extern fixed16_t       r_pright_fixed[ 3 ], r_pup_fixed[ 3 ], r_ppn_fixed[ 3 ], r_porigin_fixed[3], pxcenter_fixed, pycenter_fixed;
 
 void D_Aff8Patch (void *pcolormap);
 void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height);
@@ -201,23 +168,16 @@ void D_DisableBackBufferAccess (void);
 void D_EndDirectRect (int x, int y, int width, int height);
 void D_PolysetDraw (void);
 void D_PolysetDrawFinalVerts (finalvert_t *fv, int numverts);
-//void D_PolysetDrawFinalVertsFPM (finalvert_t *fv, int numverts);
 void D_DrawParticle (particle_t *pparticle);
-//void D_DrawParticleFPM (particle_FPM_t *pparticleFPM);
 void D_DrawPoly (void);
-//void D_DrawPolyFPM (void);
 void D_DrawSprite (void);
-//void D_DrawSpriteFPM (void);
 void D_DrawSurfaces (void);
 void D_DrawZPoint (void);
 void D_EnableBackBufferAccess (void);
 void D_EndParticles (void);
 void D_Init (void);
-void D_InitFPM (void);
 void D_ViewChanged (void);
-//void D_ViewChangedFPM (void);
 void D_SetupFrame (void);
-//void D_SetupFrameFPM (void);
 void D_StartParticles (void);
 void D_TurnZOn (void);
 void D_WarpScreen (void);
@@ -260,25 +220,10 @@ typedef struct
 	int			surfwidth;	// in mipmapped texels
 	int			surfheight;	// in mipmapped texels
 } drawsurf_t;
-/*
-typedef struct
-{
-	pixel_t		*surfdat;	// destination for generated surface
-	int			rowbytes;	// destination logical width in bytes
-	msurface_FPM_t	*surf;		// description for surface to generate
-	fixed8_t	lightadj[MAXLIGHTMAPS];
-							// adjust for lightmap levels for dynamic lighting
-	texture_t	*texture;	// corrected for animating textures
-	int			surfmip;	// mipmapped ratio of surface texels / world pixels
-	int			surfwidth;	// in mipmapped texels
-	int			surfheight;	// in mipmapped texels
-} drawsurf_FPM_t;
-*/
+
 extern drawsurf_t	r_drawsurf;
-//extern drawsurf_FPM_t	r_drawsurfFPM;
 
 void R_DrawSurface (void);
-//void R_DrawSurfaceFPM (void);
 void R_GenTile (msurface_t *psurf, void *pdest);
 
 

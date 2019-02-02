@@ -63,7 +63,7 @@ int			num_sfx;
 
 sfx_t		*ambient_sfx[NUM_AMBIENTS];
 
-int 		desired_speed = 22050;
+int 		desired_speed = 11025;
 int 		desired_bits = 16;
 
 int sound_started=0;
@@ -902,7 +902,7 @@ void S_Update_(void)
 
 	S_PaintChannels (endtime);
 
-	SNDDMA_Submit ();
+	/*SNDDMA_Submit ();*/
 #endif /* ! SDL */
 }
 

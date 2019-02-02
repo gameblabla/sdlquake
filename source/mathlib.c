@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -19,16 +19,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // mathlib.c -- math primitives
 
-//Dan East:
-//I've made many additions to this file, recreating various original functions to use
-//my Fixed Point Math routines.  My additions all contain the acronym FPM
-
 #include <math.h>
 #include "quakedef.h"
 
 void Sys_Error (char *error, ...);
 
-vec3_t		vec3_origin = {0,0,0};
+vec3_t vec3_origin = {0,0,0};
 int nanmask = 255<<23;
 
 /*-----------------------------------------------------------------*/
@@ -72,7 +68,7 @@ void PerpendicularVector( vec3_t dst, const vec3_t src )
 		if ( fabs( src[i] ) < minelem )
 		{
 			pos = i;
-			minelem = (float)fabs( src[i] );
+			minelem = fabs( src[i] );
 		}
 	}
 	tempvec[0] = tempvec[1] = tempvec[2] = 0.0F;
@@ -123,7 +119,7 @@ void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, 
 	m[1][2] = vf[1];
 	m[2][2] = vf[2];
 
-	Q_memcpy( im, m, sizeof( im ) );
+	memcpy( im, m, sizeof( im ) );
 
 	im[0][1] = m[1][0];
 	im[0][2] = m[2][0];
@@ -132,13 +128,13 @@ void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, 
 	im[2][0] = m[0][2];
 	im[2][1] = m[1][2];
 
-	Q_memset( zrot, 0, sizeof( zrot ) );
+	memset( zrot, 0, sizeof( zrot ) );
 	zrot[0][0] = zrot[1][1] = zrot[2][2] = 1.0F;
 
-	zrot[0][0] = (float)cos( DEG2RAD( degrees ) );
-	zrot[0][1] = (float)sin( DEG2RAD( degrees ) );
-	zrot[1][0] = (float)-sin( DEG2RAD( degrees ) );
-	zrot[1][1] = (float)cos( DEG2RAD( degrees ) );
+	zrot[0][0] = cos( DEG2RAD( degrees ) );
+	zrot[0][1] = sin( DEG2RAD( degrees ) );
+	zrot[1][0] = -sin( DEG2RAD( degrees ) );
+	zrot[1][1] = cos( DEG2RAD( degrees ) );
 
 	R_ConcatRotations( m, zrot, tmpmat );
 	R_ConcatRotations( tmpmat, im, rot );
@@ -148,7 +144,6 @@ void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, 
 		dst[i] = rot[i][0] * point[0] + rot[i][1] * point[1] + rot[i][2] * point[2];
 	}
 }
-
 
 #ifdef _WIN32
 #pragma optimize( "", on )
@@ -165,10 +160,9 @@ float	anglemod(float a)
 	else
 		a += 360*( 1 + (int)(-a/360) );
 #endif
-	a = (float)((360.0/65536) * ((int)(a*(65536/360.0)) & 65535));
+	a = (360.0/65536) * ((int)(a*(65536/360.0)) & 65535);
 	return a;
 }
-
 
 /*
 ==================
@@ -209,7 +203,7 @@ int BoxOnPlaneSide (vec3_t emins, vec3_t emaxs, mplane_t *p)
 		return 3;
 	}
 #endif
-
+	
 // general case
 	switch (p->signbits)
 	{
@@ -292,7 +286,6 @@ if (sides == 0)
 	return sides;
 }
 
-
 #endif
 
 
@@ -300,16 +293,16 @@ void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up)
 {
 	float		angle;
 	float		sr, sp, sy, cr, cp, cy;
-
-	angle = (float)(angles[YAW] * (M_PI*2 / 360));
-	sy = (float)sin(angle);
-	cy = (float)cos(angle);
-	angle = (float)(angles[PITCH] * (M_PI*2 / 360));
-	sp = (float)sin(angle);
-	cp = (float)cos(angle);
-	angle = (float)(angles[ROLL] * (M_PI*2 / 360));
-	sr = (float)sin(angle);
-	cr = (float)cos(angle);
+	
+	angle = angles[YAW] * (M_PI*2 / 360);
+	sy = sin(angle);
+	cy = cos(angle);
+	angle = angles[PITCH] * (M_PI*2 / 360);
+	sp = sin(angle);
+	cp = cos(angle);
+	angle = angles[ROLL] * (M_PI*2 / 360);
+	sr = sin(angle);
+	cr = cos(angle);
 
 	forward[0] = cp*cy;
 	forward[1] = cp*sy;
@@ -325,14 +318,13 @@ void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up)
 int VectorCompare (vec3_t v1, vec3_t v2)
 {
 	int		i;
-
+	
 	for (i=0 ; i<3 ; i++)
 		if (v1[i] != v2[i])
 			return 0;
-
+			
 	return 1;
 }
-
 
 void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc)
 {
@@ -342,8 +334,6 @@ void VectorMA (vec3_t veca, float scale, vec3_t vecb, vec3_t vecc)
 }
 
 
-//Dan: The following functions do not appear to be used by WinQuake
-/*
 vec_t _DotProduct (vec3_t v1, vec3_t v2)
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
@@ -369,7 +359,6 @@ void _VectorCopy (vec3_t in, vec3_t out)
 	out[1] = in[1];
 	out[2] = in[2];
 }
-*/
 
 void CrossProduct (vec3_t v1, vec3_t v2, vec3_t cross)
 {
@@ -378,15 +367,17 @@ void CrossProduct (vec3_t v1, vec3_t v2, vec3_t cross)
 	cross[2] = v1[0]*v2[1] - v1[1]*v2[0];
 }
 
+double sqrt(double x);
+
 vec_t Length(vec3_t v)
 {
 	int		i;
 	float	length;
-
+	
 	length = 0;
 	for (i=0 ; i< 3 ; i++)
 		length += v[i]*v[i];
-	length = (float)sqrt (length);		// FIXME
+	length = sqrt (length);		// FIXME
 
 	return length;
 }
@@ -396,7 +387,7 @@ float VectorNormalize (vec3_t v)
 	float	length, ilength;
 
 	length = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
-	length = (float)sqrt (length);		// FIXME
+	length = sqrt (length);		// FIXME
 
 	if (length)
 	{
@@ -405,7 +396,7 @@ float VectorNormalize (vec3_t v)
 		v[1] *= ilength;
 		v[2] *= ilength;
 	}
-
+		
 	return length;
 
 }
@@ -423,6 +414,7 @@ void VectorScale (vec3_t in, vec_t scale, vec3_t out)
 	out[1] = in[1]*scale;
 	out[2] = in[2]*scale;
 }
+
 
 int Q_log2(int val)
 {
@@ -494,65 +486,6 @@ void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4])
 				in1[2][2] * in2[2][3] + in1[2][3];
 }
 
-/*
-void R_ConcatTransformsFPM (fixedpoint_t in1[3][4], fixedpoint_t in2[3][4], fixedpoint_t out[3][4])
-{
-	out[0][0] = FPM_ADD3(FPM_MUL(in1[0][0],in2[0][0]),FPM_MUL(in1[0][1],in2[1][0]),
-				FPM_MUL(in1[0][2],in2[2][0]));
-	out[0][1] = FPM_ADD3(FPM_MUL(in1[0][0],in2[0][1]),FPM_MUL(in1[0][1],in2[1][1]),
-				FPM_MUL(in1[0][2],in2[2][1]));
-	out[0][2] = FPM_ADD3(FPM_MUL(in1[0][0],in2[0][2]),FPM_MUL(in1[0][1],in2[1][2]),
-				FPM_MUL(in1[0][2],in2[2][2]));
-	out[0][3] = FPM_ADD(FPM_ADD3(FPM_MUL(in1[0][0],in2[0][3]),FPM_MUL(in1[0][1],in2[1][3]),
-				FPM_MUL(in1[0][2],in2[2][3])),in1[0][3]);
-	out[1][0] = FPM_ADD3(FPM_MUL(in1[1][0],in2[0][0]),FPM_MUL(in1[1][1],in2[1][0]),
-				FPM_MUL(in1[1][2],in2[2][0]));
-	out[1][1] = FPM_ADD3(FPM_MUL(in1[1][0],in2[0][1]),FPM_MUL(in1[1][1],in2[1][1]),
-				FPM_MUL(in1[1][2],in2[2][1]));
-	out[1][2] = FPM_ADD3(FPM_MUL(in1[1][0],in2[0][2]),FPM_MUL(in1[1][1],in2[1][2]),
-				FPM_MUL(in1[1][2],in2[2][2]));
-	out[1][3] = FPM_ADD(FPM_ADD3(FPM_MUL(in1[1][0],in2[0][3]),FPM_MUL(in1[1][1],in2[1][3]),
-				FPM_MUL(in1[1][2],in2[2][3])),in1[1][3]);
-	out[2][0] = FPM_ADD3(FPM_MUL(in1[2][0],in2[0][0]),FPM_MUL(in1[2][1],in2[1][0]),
-				FPM_MUL(in1[2][2],in2[2][0]));
-	out[2][1] = FPM_ADD3(FPM_MUL(in1[2][0],in2[0][1]),FPM_MUL(in1[2][1],in2[1][1]),
-				FPM_MUL(in1[2][2],in2[2][1]));
-	out[2][2] = FPM_ADD3(FPM_MUL(in1[2][0],in2[0][2]),FPM_MUL(in1[2][1],in2[1][2]),
-				FPM_MUL(in1[2][2],in2[2][2]));
-	out[2][3] = FPM_ADD(FPM_ADD3(FPM_MUL(in1[2][0],in2[0][3]),FPM_MUL(in1[2][1],in2[1][3]),
-				FPM_MUL(in1[2][2],in2[2][3])),in1[2][3]);
-}
-*/
-
-/*
-void R_ConcatTransforms8_24FPM (fixedpoint_t in1[3][4], fixedpoint_t in2[3][4], fixedpoint8_24_t out[3][4])
-{
-	out[0][0] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[0][0],in2[0][0]),FPM_MUL(in1[0][1],in2[1][0]),
-				FPM_MUL(in1[0][2],in2[2][0])));
-	out[0][1] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[0][0],in2[0][1]),FPM_MUL(in1[0][1],in2[1][1]),
-				FPM_MUL(in1[0][2],in2[2][1])));
-	out[0][2] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[0][0],in2[0][2]),FPM_MUL(in1[0][1],in2[1][2]),
-				FPM_MUL(in1[0][2],in2[2][2])));
-	out[0][3] = (fixedpoint_t)FPM_ADD(FPM_ADD3(FPM_MUL(in1[0][0],in2[0][3]),FPM_MUL(in1[0][1],in2[1][3]),
-				FPM_MUL(in1[0][2],in2[2][3])),in1[0][3]);
-	out[1][0] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[1][0],in2[0][0]),FPM_MUL(in1[1][1],in2[1][0]),
-				FPM_MUL(in1[1][2],in2[2][0])));
-	out[1][1] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[1][0],in2[0][1]),FPM_MUL(in1[1][1],in2[1][1]),
-				FPM_MUL(in1[1][2],in2[2][1])));
-	out[1][2] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[1][0],in2[0][2]),FPM_MUL(in1[1][1],in2[1][2]),
-				FPM_MUL(in1[1][2],in2[2][2])));
-	out[1][3] = (fixedpoint_t)FPM_ADD(FPM_ADD3(FPM_MUL(in1[1][0],in2[0][3]),FPM_MUL(in1[1][1],in2[1][3]),
-				FPM_MUL(in1[1][2],in2[2][3])),in1[1][3]);
-	out[2][0] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[2][0],in2[0][0]),FPM_MUL(in1[2][1],in2[1][0]),
-				FPM_MUL(in1[2][2],in2[2][0])));
-	out[2][1] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[2][0],in2[0][1]),FPM_MUL(in1[2][1],in2[1][1]),
-				FPM_MUL(in1[2][2],in2[2][1])));
-	out[2][2] = fpm_FromFixedPoint(FPM_ADD3(FPM_MUL(in1[2][0],in2[0][2]),FPM_MUL(in1[2][1],in2[1][2]),
-				FPM_MUL(in1[2][2],in2[2][2])));
-	out[2][3] = (fixedpoint_t)FPM_ADD(FPM_ADD3(FPM_MUL(in1[2][0],in2[0][3]),FPM_MUL(in1[2][1],in2[1][3]),
-				FPM_MUL(in1[2][2],in2[2][3])),in1[2][3]);
-}
-*/
 
 /*
 ===================
@@ -605,6 +538,32 @@ void FloorDivMod (double numer, double denom, int *quotient,
 	*rem = r;
 }
 
+void FloorDivModFixed( int numer, int denom, int *quotient, int *rem )
+{
+	int		q, r, x;
+
+	if (numer >= 0 )
+	{
+		x = udiv_64_32( numer, denom );
+		q = x;
+		r = numer - (x * denom); /* fixme: udiv_64_32 calculates the remainder already */
+	}
+	else
+	{
+		x = udiv_64_32( -numer, denom );
+		q = -x;
+		r = -numer - (x * denom); /* fixme: udiv_64_32 calculates the remainder already */
+		if( r != 0 )
+		{
+			q--;
+			r = denom - r;
+		}
+	}
+
+	*quotient = q;
+	*rem = r;
+}
+
 
 /*
 ===================
@@ -647,28 +606,6 @@ fixed16_t Invert24To16(fixed16_t val)
 
 	return (fixed16_t)
 			(((double)0x10000 * (double)0x1000000 / (double)val) + 0.5);
-}
-
-int ParseFloats(char *s, float *f, int *f_size) { 
-   int i, argc; 
-
-   if (!s || !f || !f_size) 
-      Sys_Error("ParseFloats() wrong params"); 
-
-   if (f_size[0] <= 0) 
-      return (f_size[0] = 0);
-
-   Cmd_TokenizeString(s); 
-   // argc = min(Cmd_Argc(), f_size[0]); 
-   argc = (Cmd_Argc(), f_size[0]); 
-    
-   for(i = 0; i < argc; i++) 
-      f[i] = Q_atof(Cmd_Argv(i)); 
-
-   for( ; i < f_size[0]; i++) 
-      f[i] = 0;
-
-   return (f_size[0] = argc); 
 }
 
 #endif

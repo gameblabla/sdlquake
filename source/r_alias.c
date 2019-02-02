@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -27,8 +27,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define LIGHT_MIN	5		// lowest light value we'll allow, to avoid the
 							//  need for inner-loop light clamping
 
+
+#define ALIAS_FIXEDP 1
+
 mtriangle_t		*ptriangles;
-affinetridesc_t		r_affinetridesc;
+affinetridesc_t	r_affinetridesc;
 
 void *			acolormap;	// FIXME: should go away
 
@@ -36,24 +39,15 @@ trivertx_t		*r_apverts;
 
 // TODO: these probably will go away with optimized rasterization
 mdl_t				*pmdl;
-
 vec3_t				r_plightvec;
-
+fixed16_t			r_plightvec_fixed[ 3 ];
 int					r_ambientlight;
-
 float				r_shadelight;
-
+int					r_shadelight_fixed;
 aliashdr_t			*paliashdr;
-
 finalvert_t			*pfinalverts;
-
 auxvert_t			*pauxverts;
-
-//finalvert_t		finalverts[MAXALIASVERTS + ((CACHE_SIZE - 1) / sizeof(finalvert_t)) + 1];
-//auxvert_FPM_t		auxverts[MAXALIASVERTS];
-
-static float			ziscale;
-
+static float		ziscale;
 static model_t		*pmodel;
 
 static vec3_t		alias_forward, alias_right, alias_up;
@@ -64,8 +58,8 @@ int				r_amodels_drawn;
 int				a_skinwidth;
 int				r_anumverts;
 
-float				aliastransform[3][4];
-
+float	aliastransform[3][4];
+fixed16_t rgf16_aliastransform[ 3 ][ 4 ];
 
 typedef struct {
 	int	index0;
@@ -83,6 +77,9 @@ static aedge_t	aedges[12] = {
 float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
+fixed16_t r_avertexnormals_fixed[NUMVERTEXNORMALS][3] = {
+#include "anormsfixed.h"
+};
 
 void R_AliasTransformAndProjectFinalVerts (finalvert_t *fv,
 	stvert_t *pstverts);
@@ -91,6 +88,7 @@ void R_AliasTransformVector (vec3_t in, vec3_t out);
 void R_AliasTransformFinalVert (finalvert_t *fv, auxvert_t *av,
 	trivertx_t *pverts, stvert_t *pstverts);
 void R_AliasProjectFinalVert (finalvert_t *fv, auxvert_t *av);
+
 
 /*
 ================
@@ -108,7 +106,7 @@ qboolean R_AliasCheckBBox (void)
 	qboolean			zclipped, zfullyclipped;
 	unsigned			anyclip, allclip;
 	int					minz;
-
+	
 // expand, rotate, and translate points into worldspace
 
 	currententity->trivial_accept = 0;
@@ -165,13 +163,13 @@ qboolean R_AliasCheckBBox (void)
 		else
 		{
 			if (viewaux[i].fv[2] < minz)
-				minz = (int)viewaux[i].fv[2];
+				minz = viewaux[i].fv[2];
 			viewpts[i].flags = 0;
 			zfullyclipped = false;
 		}
 	}
 
-
+	
 	if (zfullyclipped)
 	{
 		return false;	// everything was near-z-clipped
@@ -218,7 +216,7 @@ qboolean R_AliasCheckBBox (void)
 		if (viewpts[i].flags & ALIAS_Z_CLIP)
 			continue;
 
-		zi = (float)(1.0 / viewaux[i].fv[2]);
+		zi = 1.0 / viewaux[i].fv[2];
 
 	// FIXME: do with chop mode in ASM, or convert to float
 		v0 = (viewaux[i].fv[0] * xscale * zi) + xcenter;
@@ -255,6 +253,7 @@ qboolean R_AliasCheckBBox (void)
 	return true;
 }
 
+
 /*
 ================
 R_AliasTransformVector
@@ -266,14 +265,7 @@ void R_AliasTransformVector (vec3_t in, vec3_t out)
 	out[1] = DotProduct(in, aliastransform[1]) + aliastransform[1][3];
 	out[2] = DotProduct(in, aliastransform[2]) + aliastransform[2][3];
 }
-/*
-void R_AliasTransformVectorFPM (vec3_FPM_t in, vec3_FPM_t out)
-{
-	out[0] = fpm_Add(DotProductFPM(in, aliastransformFPM[0]), aliastransformFPM[0][3]);
-	out[1] = fpm_Add(DotProductFPM(in, aliastransformFPM[1]), aliastransformFPM[1][3]);
-	out[2] = fpm_Add(DotProductFPM(in, aliastransformFPM[2]), aliastransformFPM[2][3]);
-}
-*/
+
 
 /*
 ================
@@ -282,7 +274,6 @@ R_AliasPreparePoints
 General clipped case
 ================
 */
-
 void R_AliasPreparePoints (void)
 {
 	int			i;
@@ -313,7 +304,7 @@ void R_AliasPreparePoints (void)
 			if (fv->v[0] > r_refdef.aliasvrectright)
 				fv->flags |= ALIAS_RIGHT_CLIP;
 			if (fv->v[1] > r_refdef.aliasvrectbottom)
-				fv->flags |= ALIAS_BOTTOM_CLIP;
+				fv->flags |= ALIAS_BOTTOM_CLIP;	
 		}
 	}
 
@@ -331,7 +322,7 @@ void R_AliasPreparePoints (void)
 
 		if ( pfv[0]->flags & pfv[1]->flags & pfv[2]->flags & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP) )
 			continue;		// completely clipped
-
+		
 		if ( ! ( (pfv[0]->flags | pfv[1]->flags | pfv[2]->flags) &
 			(ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP) ) )
 		{	// totally unclipped
@@ -339,12 +330,13 @@ void R_AliasPreparePoints (void)
 			r_affinetridesc.ptriangles = ptri;
 			D_PolysetDraw ();
 		}
-		else
+		else		
 		{	// partially clipped
 			R_AliasClipTriangle (ptri);
 		}
 	}
 }
+
 
 /*
 ================
@@ -411,17 +403,31 @@ void R_AliasSetUpTransform (int trivial_accept)
 // FIXME: make this work for clipped case too?
 	if (trivial_accept)
 	{
+#if ALIAS_FIXEDP
+		for( i = 0; i < 3; i++ )
+		{
+			rgf16_aliastransform[ 0 ][ i ] = ( int )( aliastransform[ 0 ][ i ] * aliasxscale * ( float )( 1 << 12 ) );
+			rgf16_aliastransform[ 1 ][ i ] = ( int )( aliastransform[ 1 ][ i ] * aliasyscale * ( float )( 1 << 12 ) );
+			rgf16_aliastransform[ 2 ][ i ] = ( int )( aliastransform[ 2 ][ i ] * ( float )( 1 << 12 ) );
+		}
+		rgf16_aliastransform[ 0 ][ 3 ] = ( int )( aliastransform[ 0 ][ 3 ] * aliasxscale );
+		rgf16_aliastransform[ 1 ][ 3 ] = ( int )( aliastransform[ 1 ][ 3 ] * aliasyscale );
+		rgf16_aliastransform[ 2 ][ 3 ] = ( int )( aliastransform[ 2 ][ 3 ] * 16 );
+#endif
+
 		for (i=0 ; i<4 ; i++)
 		{
+
 			aliastransform[0][i] *= aliasxscale *
-					(((float)1.0) / ((float)0x8000 * 0x10000));
+					(1.0 / ((float)0x8000 * 0x10000));
 			aliastransform[1][i] *= aliasyscale *
-					(((float)1.0) / ((float)0x8000 * 0x10000));
+					(1.0 / ((float)0x8000 * 0x10000));
 			aliastransform[2][i] *= 1.0 / ((float)0x8000 * 0x10000);
 
 		}
 	}
 }
+
 
 /*
 ================
@@ -465,11 +471,6 @@ void R_AliasTransformFinalVert (finalvert_t *fv, auxvert_t *av,
 }
 
 
-/*
-================
-R_AliasTransformFinalVert
-================
-*/
 #if	!id386
 
 /*
@@ -483,27 +484,23 @@ void R_AliasTransformAndProjectFinalVerts (finalvert_t *fv, stvert_t *pstverts)
 	float		lightcos, *plightnormal, zi;
 	trivertx_t	*pverts;
 
-	GpError("R_AliasTFPFinalVert A",13);
-
 	pverts = r_apverts;
-
 
 	for (i=0 ; i<r_anumverts ; i++, fv++, pverts++, pstverts++)
 	{
-
 	// transform and project
-		zi = ((float)1.0) / (DotProduct(pverts->v, aliastransform[2]) +
+		zi = 1.0 / (DotProduct(pverts->v, aliastransform[2]) +
 				aliastransform[2][3]);
 
 	// x, y, and z are scaled down by 1/2**31 in the transform, so 1/z is
 	// scaled up by 1/2**31, and the scaling cancels out for x and y in the
 	// projection
-		fv->v[5] = (int)zi;
+		fv->v[5] = zi;
 
-		fv->v[0] = (int)(((DotProduct(pverts->v, aliastransform[0]) +
-				aliastransform[0][3]) * zi) + aliasxcenter);
-		fv->v[1] = (int)(((DotProduct(pverts->v, aliastransform[1]) +
-				aliastransform[1][3]) * zi) + aliasycenter);
+		fv->v[0] = ((DotProduct(pverts->v, aliastransform[0]) +
+				aliastransform[0][3]) * zi) + aliasxcenter;
+		fv->v[1] = ((DotProduct(pverts->v, aliastransform[1]) +
+				aliastransform[1][3]) * zi) + aliasycenter;
 
 		fv->v[2] = pstverts->s;
 		fv->v[3] = pstverts->t;
@@ -525,10 +522,117 @@ void R_AliasTransformAndProjectFinalVerts (finalvert_t *fv, stvert_t *pstverts)
 		}
 
 		fv->v[4] = temp;
-
 	}
-	GpError("R_AliasTFPFinalVert end",13);
 }
+
+
+#if ALIAS_FIXEDP
+
+#define ALIAS_FIXED_TRANSFORM_DOTP( v1, v2 ) ( ( ( ( v1[ 0 ] ) * ( v2[ 0 ] ) + ( v1[ 1 ] ) * ( v2[ 1 ] ) + ( v1[ 2 ] ) * ( v2[ 2 ] ) ) + ( 1 << 11 ) ) >> 12 )
+#define ALIAS_FIXED_TRANSFORM_DOTPZ( v1, v2 ) ( ( ( ( v1[ 0 ] ) * ( v2[ 0 ] ) + ( v1[ 1 ] ) * ( v2[ 1 ] ) + ( v1[ 2 ] ) * ( v2[ 2 ] ) ) + 128 ) >> 8 )
+
+
+#define ALIAS_FIXED_BP 0
+
+void R_AliasTransformAndProjectFinalVertsFixed (finalvert_t *fv, stvert_t *pstverts)
+{
+	int			i, j, temp;
+	float		lightcos, *plightnormal, zi, test0, test1;
+	trivertx_t	*pverts;
+	fixed16_t f16_aliasxcenter, f16_aliasycenter, f16_lightcos, *plightnormal_fixed;
+	
+	int v0, v1, v2, v3, v4, v5, vzi;
+
+	pverts = r_apverts;
+
+	f16_aliasxcenter = (int)(aliasxcenter * ((float)(1<<4)));
+	f16_aliasycenter = (int)(aliasycenter * ((float)(1<<4)));
+
+	for (i=0 ; i<r_anumverts ; i++, fv++, pverts++, pstverts++)
+	{
+#if ALIAS_FIXED_BP
+	// transform and project
+		zi = 1.0 / (DotProduct(pverts->v, aliastransform[2]) +
+				aliastransform[2][3]);
+
+	// x, y, and z are scaled down by 1/2**31 in the transform, so 1/z is
+	// scaled up by 1/2**31, and the scaling cancels out for x and y in the
+	// projection
+		fv->v[5] = zi;
+
+		test0 = (DotProduct(pverts->v, aliastransform[2]) +	aliastransform[2][3]) * ( ( ( float )0x8000 * 0x10000 ) );
+		
+
+		fv->v[0] = ((DotProduct(pverts->v, aliastransform[0]) +
+				aliastransform[0][3]) * zi) + aliasxcenter;
+		fv->v[1] = ((DotProduct(pverts->v, aliastransform[1]) +
+				aliastransform[1][3]) * zi) + aliasycenter;
+		test0 = fv->v[0];
+		test1 = fv->v[1];
+#endif
+		vzi = ( ( ( ALIAS_FIXED_TRANSFORM_DOTPZ( pverts->v, rgf16_aliastransform[ 2 ] ) + rgf16_aliastransform[ 2 ][ 3 ] ) ) );
+		vzi = udiv_fast_32_32_incorrect( vzi, 0x7fffffff ) << 4;
+		fv->v[5] = vzi;
+		v0 = ( ( ALIAS_FIXED_TRANSFORM_DOTP( pverts->v, rgf16_aliastransform[ 0 ] ) + rgf16_aliastransform[ 0 ][ 3 ] ) );
+		v1 = ( ( ALIAS_FIXED_TRANSFORM_DOTP( pverts->v, rgf16_aliastransform[ 1 ] ) + rgf16_aliastransform[ 1 ][ 3 ] ) );
+		fv->v[0] = ( ( ( ( llmull_s27( v0, vzi ) ) + f16_aliasxcenter ) + 8 ) >> 4 );
+		fv->v[1] = ( ( ( ( llmull_s27( v1, vzi ) ) + f16_aliasycenter ) + 8 ) >> 4 );
+
+#if ALIAS_FIXED_BP
+		if( abs( test0 - fv->v[0] ) > 1 ||
+			abs( test1 - fv->v[1] ) > 1 )
+		{
+			v0 = v0;
+		}
+#endif
+		fv->v[2] = pstverts->s;
+		fv->v[3] = pstverts->t;
+		fv->flags = pstverts->onseam;
+
+	// lighting
+		
+
+#if ALIAS_FIXED_BP
+		plightnormal = r_avertexnormals[pverts->lightnormalindex];
+		lightcos = DotProduct (plightnormal, r_plightvec);
+		temp = r_ambientlight;
+
+		if (lightcos < 0)
+		{
+			temp += (int)(r_shadelight * lightcos);
+
+		// clamp; because we limited the minimum ambient and shading light, we
+		// don't have to clamp low light, just bright
+			if (temp < 0)
+				temp = 0;
+		}
+		test0 = temp;
+#endif
+		
+
+		plightnormal_fixed = r_avertexnormals_fixed[pverts->lightnormalindex];
+		f16_lightcos = ALIAS_FIXED_TRANSFORM_DOTPZ( plightnormal_fixed, r_plightvec_fixed );
+		temp = r_ambientlight;
+
+		if( f16_lightcos < 0 )
+		{
+			temp += ( ( r_shadelight_fixed * f16_lightcos ) ) >> 16;
+			if( temp < 0 )
+			{
+				temp = 0;
+			}
+		}
+#if ALIAS_FIXED_BP
+		if( abs( temp - test0 ) > 3 )
+		{
+			temp = temp;
+		}
+#endif
+		fv->v[4] = temp;
+	}
+}
+#endif
+
 #endif
 
 
@@ -542,12 +646,12 @@ void R_AliasProjectFinalVert (finalvert_t *fv, auxvert_t *av)
 	float	zi;
 
 // project points
-	zi = ((float)1.0) / av->fv[2];
+	zi = 1.0 / av->fv[2];
 
-	fv->v[5] = (int) (zi * ziscale);
+	fv->v[5] = zi * ziscale;
 
-	fv->v[0] = (int)((av->fv[0] * aliasxscale * zi) + aliasxcenter);
-	fv->v[1] = (int)((av->fv[1] * aliasyscale * zi) + aliasycenter);
+	fv->v[0] = (av->fv[0] * aliasxscale * zi) + aliasxcenter;
+	fv->v[1] = (av->fv[1] * aliasyscale * zi) + aliasycenter;
 }
 
 
@@ -561,30 +665,62 @@ void R_AliasPrepareUnclippedPoints (void)
 	stvert_t	*pstverts;
 	finalvert_t	*fv;
 
-	GpError("R_AliasPrepareUnliccpedPoints A",12);
-
 	pstverts = (stvert_t *)((byte *)paliashdr + paliashdr->stverts);
 	r_anumverts = pmdl->numverts;
 // FIXME: just use pfinalverts directly?
 	fv = pfinalverts;
 
-	GpError("R_AliasPrepareUnliccpedPoints B",12);
 	R_AliasTransformAndProjectFinalVerts (fv, pstverts);
 
-	if (r_affinetridesc.drawtype){
-		GpError("R_AliasPrepareUnliccpedPoints B",13);
+	if (r_affinetridesc.drawtype)
 		D_PolysetDrawFinalVerts (fv, r_anumverts);
-	}
 
 	r_affinetridesc.pfinalverts = pfinalverts;
 	r_affinetridesc.ptriangles = (mtriangle_t *)
 			((byte *)paliashdr + paliashdr->triangles);
 	r_affinetridesc.numtriangles = pmdl->numtris;
 
-	GpError("R_AliasPrepareUnliccpedPoints C",13);
 	D_PolysetDraw ();
-	GpError("R_AliasPrepareUnliccpedPoints end",13);
 }
+
+#if ALIAS_FIXEDP
+void R_AliasPrepareUnclippedPointsFixed (void)
+{
+	stvert_t	*pstverts;
+	finalvert_t	*fv;
+
+	pstverts = (stvert_t *)((byte *)paliashdr + paliashdr->stverts);
+	r_anumverts = pmdl->numverts;
+// FIXME: just use pfinalverts directly?
+	fv = pfinalverts;
+
+	/*
+	{
+		int i;
+		FILE *f;
+
+		f = fopen( "anormsfixed.h", "wt" );
+		for( i = 0; i < NUMVERTEXNORMALS; i++ )
+		{
+			fprintf( f, "{ %d, %d, %d },\n", (int)(r_avertexnormals[i][0]*(0x1000)), (int)(r_avertexnormals[i][1]*(0x1000)), (int)(r_avertexnormals[i][2]*(0x1000)) );
+		}
+		fclose(f);
+	}
+	*/
+
+	R_AliasTransformAndProjectFinalVertsFixed (fv, pstverts);
+
+	if (r_affinetridesc.drawtype)
+		D_PolysetDrawFinalVerts (fv, r_anumverts);
+
+	r_affinetridesc.pfinalverts = pfinalverts;
+	r_affinetridesc.ptriangles = (mtriangle_t *)
+			((byte *)paliashdr + paliashdr->triangles);
+	r_affinetridesc.numtriangles = pmdl->numtris;
+
+	D_PolysetDraw ();
+}
+#endif
 
 /*
 ===============
@@ -618,20 +754,20 @@ void R_AliasSetupSkin (void)
 				((byte *)paliashdr + paliasskingroup->intervals);
 		numskins = paliasskingroup->numskins;
 		fullskininterval = pskinintervals[numskins-1];
-
-		skintime = ((float)cl.time) + currententity->syncbase;
-
+	
+		skintime = cl.time + currententity->syncbase;
+	
 	// when loading in Mod_LoadAliasSkinGroup, we guaranteed all interval
 	// values are positive, so we don't have to worry about division by 0
 		skintargettime = skintime -
 				((int)(skintime / fullskininterval)) * fullskininterval;
-
+	
 		for (i=0 ; i<(numskins-1) ; i++)
 		{
 			if (pskinintervals[i] > skintargettime)
 				break;
 		}
-
+	
 		pskindesc = &paliasskingroup->skindescs[i];
 	}
 
@@ -662,7 +798,7 @@ void R_AliasSetupLighting (alight_t *plighting)
 	if (r_ambientlight < LIGHT_MIN)
 		r_ambientlight = LIGHT_MIN;
 
-	r_shadelight = (float)plighting->shadelight;
+	r_shadelight = plighting->shadelight;
 
 	if (r_shadelight < 0)
 		r_shadelight = 0;
@@ -673,6 +809,14 @@ void R_AliasSetupLighting (alight_t *plighting)
 	r_plightvec[0] = DotProduct (plighting->plightvec, alias_forward);
 	r_plightvec[1] = -DotProduct (plighting->plightvec, alias_right);
 	r_plightvec[2] = DotProduct (plighting->plightvec, alias_up);
+
+#if ALIAS_FIXEDP
+	r_plightvec_fixed[ 0 ] = ( int )( r_plightvec[0] * 0x1000 );
+	r_plightvec_fixed[ 1 ] = ( int )( r_plightvec[1] * 0x1000 );
+	r_plightvec_fixed[ 2 ] = ( int )( r_plightvec[2] * 0x1000 );
+	r_shadelight_fixed = ( int )r_shadelight; /* 14 bit max ? */
+#endif
+
 }
 
 /*
@@ -702,14 +846,14 @@ void R_AliasSetupFrame (void)
 				((byte *)paliashdr + paliashdr->frames[frame].frame);
 		return;
 	}
-
+	
 	paliasgroup = (maliasgroup_t *)
 				((byte *)paliashdr + paliashdr->frames[frame].frame);
 	pintervals = (float *)((byte *)paliashdr + paliasgroup->intervals);
 	numframes = paliasgroup->numframes;
 	fullinterval = pintervals[numframes-1];
 
-	time = ((float)cl.time) + currententity->syncbase;
+	time = cl.time + currententity->syncbase;
 
 //
 // when loading in Mod_LoadAliasGroup, we guaranteed all interval values
@@ -727,6 +871,7 @@ void R_AliasSetupFrame (void)
 				((byte *)paliashdr + paliasgroup->frames[i].frame);
 }
 
+
 /*
 ================
 R_AliasDrawModel
@@ -734,17 +879,9 @@ R_AliasDrawModel
 */
 void R_AliasDrawModel (alight_t *plighting)
 {
-finalvert_t		finalverts[MAXALIASVERTS + ((CACHE_SIZE - 1) / sizeof(finalvert_t)) + 1];
-        auxvert_t      	auxverts[MAXALIASVERTS];
-//	finalvert_t		*finalverts;
-//	auxvert_t		*auxverts;
-
-
-	//Anders> Change malloc to static allocated memory to avoid malloc?
-	//  	finalverts = malloc( (sizeof(finalvert_t)*MAXALIASVERTS) + (sizeof(finalvert_t)*(((CACHE_SIZE - 1) / sizeof(finalvert_t)) + 1)));
-	//        auxverts   = malloc( (sizeof(finalvert_t)*MAXALIASVERTS));
-
-	GpError("R_AliasDrawModel A",11);
+	finalvert_t		finalverts[MAXALIASVERTS +
+						((CACHE_SIZE - 1) / sizeof(finalvert_t)) + 1];
+	auxvert_t		auxverts[MAXALIASVERTS];
 
 	r_amodels_drawn++;
 
@@ -753,20 +890,13 @@ finalvert_t		finalverts[MAXALIASVERTS + ((CACHE_SIZE - 1) / sizeof(finalvert_t))
 			(((long)&finalverts[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 	pauxverts = &auxverts[0];
 
-	GpError("R_AliasDrawModel B",11);
-
 	paliashdr = (aliashdr_t *)Mod_Extradata (currententity->model);
 	pmdl = (mdl_t *)((byte *)paliashdr + paliashdr->model);
 
-	GpError("R_AliasDrawModel C",11);
 	R_AliasSetupSkin ();
-	GpError("R_AliasDrawModel D",11);
 	R_AliasSetUpTransform (currententity->trivial_accept);
-	GpError("R_AliasDrawModel E",11);
 	R_AliasSetupLighting (plighting);
-	GpError("R_AliasDrawModel F",11);
 	R_AliasSetupFrame ();
-	GpError("R_AliasDrawModel G",11);
 
 	if (!currententity->colormap)
 		Sys_Error ("R_AliasDrawModel: !currententity->colormap");
@@ -776,7 +906,6 @@ finalvert_t		finalverts[MAXALIASVERTS + ((CACHE_SIZE - 1) / sizeof(finalvert_t))
 
 	if (r_affinetridesc.drawtype)
 	{
-		GpError("R_AliasDrawModel H",11);
 		D_PolysetUpdateTables ();		// FIXME: precalc...
 	}
 	else
@@ -793,15 +922,13 @@ finalvert_t		finalverts[MAXALIASVERTS + ((CACHE_SIZE - 1) / sizeof(finalvert_t))
 	else
 		ziscale = (float)0x8000 * (float)0x10000 * 3.0;
 
-	if (currententity->trivial_accept){
-		GpError("R_AliasDrawModel I",11);
+	if (currententity->trivial_accept)
+#if ALIAS_FIXEDP
+		R_AliasPrepareUnclippedPointsFixed ();
+#else
 		R_AliasPrepareUnclippedPoints ();
-	}
-	else{
-		GpError("R_AliasDrawModel J",11);
+#endif
+	else
 		R_AliasPreparePoints ();
-	}
-	//		free(finalverts);
-	//		free(auxverts);
-	GpError("R_AliasDrawModel end",11);
 }
+

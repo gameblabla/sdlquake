@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -66,7 +66,7 @@ qpic_t	*Draw_CachePic (char *path)
 	cachepic_t	*pic;
 	int			i;
 	qpic_t		*dat;
-
+	
 	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
 		if (!strcmp (path, pic->name))
 			break;
@@ -88,7 +88,7 @@ qpic_t	*Draw_CachePic (char *path)
 // load the pic from disk
 //
 	COM_LoadCacheFile (path, &pic->cache);
-
+	
 	dat = (qpic_t *)pic->cache.data;
 	if (!dat)
 	{
@@ -109,7 +109,7 @@ Draw_Init
 */
 void Draw_Init (void)
 {
-//	int		i;
+	int		i;
 
 	draw_chars = W_GetLumpName ("conchars");
 	draw_disc = W_GetLumpName ("disc");
@@ -137,11 +137,11 @@ void Draw_Character (int x, int y, int num)
 	byte			*dest;
 	byte			*source;
 	unsigned short	*pusdest;
-	int				drawline;
+	int				drawline;	
 	int				row, col;
 
 	num &= 255;
-
+	
 	if (y <= -8)
 		return;			// totally off screen
 
@@ -169,7 +169,7 @@ void Draw_Character (int x, int y, int num)
 	if (r_pixbytes == 1)
 	{
 		dest = vid.conbuffer + y*vid.conrowbytes + x;
-
+	
 		while (drawline--)
 		{
 			if (source[0])
@@ -251,7 +251,7 @@ void Draw_DebugChar (char num)
 {
 	byte			*dest;
 	byte			*source;
-	int				drawline;
+	int				drawline;	
 	extern byte		*draw_chars;
 	int				row, col;
 
@@ -288,12 +288,10 @@ Draw_Pic
 */
 void Draw_Pic (int x, int y, qpic_t *pic)
 {
-//	byte			*dest, *source;
-//	unsigned short	*pusdest;
-//	int				v, u;
+	byte			*dest, *source;
+	unsigned short	*pusdest;
+	int				v, u;
 
-	Draw_TransPic(x, y, pic);
-	/*
 	if ((x < 0) ||
 		(x + pic->width > vid.width) ||
 		(y < 0) ||
@@ -331,7 +329,6 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 			source += pic->width;
 		}
 	}
-	*/
 }
 
 
@@ -345,26 +342,13 @@ void Draw_TransPic (int x, int y, qpic_t *pic)
 	byte	*dest, *source, tbyte;
 	unsigned short	*pusdest;
 	int				v, u;
-	int w, h;
 
-	if (x < 0 || y < 0)
-	{
-		Sys_Error ("Draw_TransPic: bad coordinates");
-	}
-
-	if ((unsigned)(x + pic->width) > vid.width) w=vid.width-x;
-	else w=pic->width;
-
-	if ((unsigned)(y + pic->height) > vid.height) h=vid.height-y;
-	else h=pic->height;
-
-/*
 	if (x < 0 || (unsigned)(x + pic->width) > vid.width || y < 0 ||
 		 (unsigned)(y + pic->height) > vid.height)
 	{
 		Sys_Error ("Draw_TransPic: bad coordinates");
 	}
-*/
+		
 	source = pic->data;
 
 	if (r_pixbytes == 1)
@@ -373,21 +357,21 @@ void Draw_TransPic (int x, int y, qpic_t *pic)
 
 		if (pic->width & 7)
 		{	// general
-			for (v=0 ; v<h/*pic->height*/ ; v++)
+			for (v=0 ; v<pic->height ; v++)
 			{
-				for (u=0 ; u<w/*pic->width*/ ; u++)
+				for (u=0 ; u<pic->width ; u++)
 					if ( (tbyte=source[u]) != TRANSPARENT_COLOR)
 						dest[u] = tbyte;
-
+	
 				dest += vid.rowbytes;
 				source += pic->width;
 			}
 		}
 		else
 		{	// unwound
-			for (v=0 ; v<h/*pic->height*/ ; v++)
+			for (v=0 ; v<pic->height ; v++)
 			{
-				for (u=0 ; u<w/*pic->width*/ ; u+=8)
+				for (u=0 ; u<pic->width ; u+=8)
 				{
 					if ( (tbyte=source[u]) != TRANSPARENT_COLOR)
 						dest[u] = tbyte;
@@ -416,9 +400,9 @@ void Draw_TransPic (int x, int y, qpic_t *pic)
 	// FIXME: pretranslate at load time?
 		pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes >> 1) + x;
 
-		for (v=0 ; v<h/*pic->height*/ ; v++)
+		for (v=0 ; v<pic->height ; v++)
 		{
-			for (u=0 ; u<w/*pic->width*/ ; u++)
+			for (u=0 ; u<pic->width ; u++)
 			{
 				tbyte = source[u];
 
@@ -445,36 +429,24 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, byte *translation)
 	byte	*dest, *source, tbyte;
 	unsigned short	*pusdest;
 	int				v, u;
-	int w, h;
-/*
+
 	if (x < 0 || (unsigned)(x + pic->width) > vid.width || y < 0 ||
 		 (unsigned)(y + pic->height) > vid.height)
 	{
 		Sys_Error ("Draw_TransPic: bad coordinates");
 	}
-*/
-	if (x < 0 || y < 0)
-	{
-		Sys_Error ("Draw_TransPicTranslate: bad coordinates");
-	}
-
-	if ((unsigned)(x + pic->width) > vid.width) w=vid.width-x;
-	else w=pic->width;
-
-	if ((unsigned)(y + pic->height) > vid.height) w=vid.height-y;
-	else h=pic->height;
-
+		
 	source = pic->data;
 
 	if (r_pixbytes == 1)
 	{
 		dest = vid.buffer + y * vid.rowbytes + x;
 
-		if (w /*pic->width*/ & 7)
+		if (pic->width & 7)
 		{	// general
-			for (v=0 ; v<h/*pic->height*/ ; v++)
+			for (v=0 ; v<pic->height ; v++)
 			{
-				for (u=0 ; u<w/*pic->width*/ ; u++)
+				for (u=0 ; u<pic->width ; u++)
 					if ( (tbyte=source[u]) != TRANSPARENT_COLOR)
 						dest[u] = translation[tbyte];
 
@@ -484,9 +456,9 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, byte *translation)
 		}
 		else
 		{	// unwound
-			for (v=0 ; v<h/*pic->height*/ ; v++)
+			for (v=0 ; v<pic->height ; v++)
 			{
-				for (u=0 ; u<w/*pic->width*/ ; u+=8)
+				for (u=0 ; u<pic->width ; u+=8)
 				{
 					if ( (tbyte=source[u]) != TRANSPARENT_COLOR)
 						dest[u] = translation[tbyte];
@@ -515,9 +487,9 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, byte *translation)
 	// FIXME: pretranslate at load time?
 		pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes >> 1) + x;
 
-		for (v=0 ; v<h/*pic->height*/ ; v++)
+		for (v=0 ; v<pic->height ; v++)
 		{
-			for (u=0 ; u<w/*pic->width*/ ; u++)
+			for (u=0 ; u<pic->width ; u++)
 			{
 				tbyte = source[u];
 
@@ -566,22 +538,16 @@ Draw_ConsoleBackground
 */
 void Draw_ConsoleBackground (int lines)
 {
-
 	int				x, y, v;
 	byte			*src, *dest;
 	unsigned short	*pusdest;
 	int				f, fstep;
 	qpic_t			*conback;
-	char			ver[256];
+	char			ver[100];
 
 	conback = Draw_CachePic ("gfx/conback.lmp");
 
 // hack the version number directly into the pic
-
-//	sprintf (ver, "(Pocket Quake) %4.2f", (float)VERSION);
-	sprintf (ver, "Quake(SDL) %4.2f R2-Tec", (float)GP2X_VERSION);
-	dest = conback->data + 320*186 + 320 - 11 - 8*strlen(ver);
-/*
 #ifdef _WIN32
 	sprintf (ver, "(WinQuake) %4.2f", (float)VERSION);
 	dest = conback->data + 320*186 + 320 - 11 - 8*strlen(ver);
@@ -595,12 +561,11 @@ void Draw_ConsoleBackground (int lines)
 	dest = conback->data + 320 - 43 + 320*186;
 	sprintf (ver, "%4.2f", VERSION);
 #endif
-*/
-	for (x=0 ; x<(int)strlen(ver) ; x++)
+
+	for (x=0 ; x<strlen(ver) ; x++)
 		Draw_CharToConback (ver[x], dest+(x<<3));
-
+	
 // draw the pic
-
 	if (r_pixbytes == 1)
 	{
 		dest = vid.conbuffer;
@@ -609,14 +574,13 @@ void Draw_ConsoleBackground (int lines)
 		{
 			v = (vid.conheight - lines + y)*200/vid.conheight;
 			src = conback->data + v*320;
-			if (vid.conwidth == 320){
-				Q_memcpy (dest, src, vid.conwidth);
-				}
+			if (vid.conwidth == 320)
+				memcpy (dest, src, vid.conwidth);
 			else
 			{
 				f = 0;
 				fstep = 320*0x10000/vid.conwidth;
-				for (x=0 ; x<(int)vid.conwidth ; x+=4)
+				for (x=0 ; x<vid.conwidth ; x+=4)
 				{
 					dest[x] = src[f>>16];
 					f += fstep;
@@ -632,7 +596,6 @@ void Draw_ConsoleBackground (int lines)
 	}
 	else
 	{
-		GpError("r_pixbytes = 1", 0);
 		pusdest = (unsigned short *)vid.conbuffer;
 
 		for (y=0 ; y<lines ; y++, pusdest += (vid.conrowbytes >> 1))
@@ -643,7 +606,7 @@ void Draw_ConsoleBackground (int lines)
 			src = conback->data + v*320;
 			f = 0;
 			fstep = 320*0x10000/vid.conwidth;
-			for (x=0 ; x<(int)vid.conwidth ; x+=4)
+			for (x=0 ; x<vid.conwidth ; x+=4)
 			{
 				pusdest[x] = d_8to16table[src[f>>16]];
 				f += fstep;
@@ -700,7 +663,7 @@ void R_DrawRect8 (vrect_t *prect, int rowbytes, byte *psrc,
 	{
 		for (i=0 ; i<prect->height ; i++)
 		{
-			Q_memcpy (pdest, psrc, prect->width);
+			memcpy (pdest, psrc, prect->width);
 			psrc += rowbytes;
 			pdest += vid.rowbytes;
 		}
@@ -887,14 +850,14 @@ void Draw_FadeScreen (void)
 	S_ExtraUpdate ();
 	VID_LockBuffer ();
 
-	for (y=0 ; y<(int)vid.height ; y++)
+	for (y=0 ; y<vid.height ; y++)
 	{
 		int	t;
 
 		pbuf = (byte *)(vid.buffer + vid.rowbytes*y);
 		t = (y & 1) << 1;
 
-		for (x=0 ; x<(int)vid.width ; x++)
+		for (x=0 ; x<vid.width ; x++)
 		{
 			if ((x & 3) != t)
 				pbuf[x] = 0;
@@ -918,6 +881,7 @@ Call before beginning any disc IO.
 */
 void Draw_BeginDisc (void)
 {
+
 	D_BeginDirectRect (vid.width - 24, 0, draw_disc->data, 24, 24);
 }
 

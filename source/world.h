@@ -27,12 +27,6 @@ typedef struct
 
 typedef struct
 {
-	vec3_FPM_t		normal;
-	fixedpoint_t	dist;
-} plane_FPM_t;
-
-typedef struct
-{
 	qboolean	allsolid;	// if true, plane is not valid
 	qboolean	startsolid;	// if true, the initial point was in a solid area
 	qboolean	inopen, inwater;
@@ -42,17 +36,6 @@ typedef struct
 	edict_t	*ent;			// entity the surface is on
 } trace_t;
 
-typedef struct
-{
-	qboolean		allsolid;	// if true, plane is not valid
-	qboolean		startsolid;	// if true, the initial point was in a solid area
-	qboolean		inopen, inwater;
-	fixedpoint_t	fraction;		// time completed, 1.0 = didn't hit anything
-	vec3_FPM_t		endpos;			// final position
-	plane_FPM_t		plane;			// surface normal at impact
-	edict_FPM_t		*ent;			// entity the surface is on
-} trace_FPM_t;
-
 
 #define	MOVE_NORMAL		0
 #define	MOVE_NOMONSTERS	1
@@ -60,24 +43,20 @@ typedef struct
 
 
 void SV_ClearWorld (void);
-void SV_ClearWorldFPM (void);
 // called after the world model has been loaded, before linking any entities
 
 void SV_UnlinkEdict (edict_t *ent);
-void SV_UnlinkEdictFPM (edict_FPM_t *ent);
 // call before removing an entity, and before trying to move one,
 // so it doesn't clip against itself
 // flags ent->v.modified
 
 void SV_LinkEdict (edict_t *ent, qboolean touch_triggers);
-void SV_LinkEdictFPM (edict_FPM_t *ent, qboolean touch_triggers);
 // Needs to be called any time an entity changes origin, mins, maxs, or solid
 // flags ent->v.modified
 // sets ent->v.absmin and ent->v.absmax
 // if touchtriggers, calls prog functions for the intersected triggers
 
 int SV_PointContents (vec3_t p);
-int SV_PointContentsFPM (vec3_FPM_t p);
 int SV_TruePointContents (vec3_t p);
 // returns the CONTENTS_* value from the world at the given point.
 // does not check any entities at all
@@ -86,8 +65,6 @@ int SV_TruePointContents (vec3_t p);
 edict_t	*SV_TestEntityPosition (edict_t *ent);
 
 trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, edict_t *passedict);
-trace_FPM_t SV_MoveFPM (vec3_FPM_t start, vec3_FPM_t mins, vec3_FPM_t maxs, vec3_FPM_t end, int type, edict_FPM_t *passedict);
-
 // mins and maxs are reletive
 
 // if the entire move stays in a solid volume, trace.allsolid will be set

@@ -431,10 +431,6 @@ float Q_atof (char *str)
 ============================================================================
 */
 
-#ifdef SDL
-#include "SDL_byteorder.h"
-#endif
-
 qboolean        bigendien;
 
 short   (*BigShort) (short l);
@@ -861,20 +857,20 @@ void COM_FileBase (char *in, char *out)
 {
 	char *s, *s2;
 	
-	s = in + strlen(in) - 1;
+	s = in + Q_strlen(in) - 1;
 	
 	while (s != in && *s != '.')
 		s--;
 	
-	for (s2 = s ; s2 > in && *s2 != '/' ; s2--)
+	for (s2 = s ; s2 >= in && *s2 != '/' ; s2--)
 	;
 	
 	if (s-s2 < 2)
-		strcpy (out,"?model?");
+		Q_strcpy(out,"?model?");
 	else
 	{
 		s--;
-		strncpy (out,s2+1, s-s2);
+		Q_strncpy(out,s2+1, s-s2);
 		out[s-s2] = 0;
 	}
 }
@@ -1131,12 +1127,7 @@ void COM_Init (char *basedir)
 	byte    swaptest[2] = {1,0};
 
 // set the byte swapping variables in a portable manner 
-#ifdef SDL
-	// This is necessary because egcs 1.1.1 mis-compiles swaptest with -O2
-	if ( SDL_BYTEORDER == SDL_LIL_ENDIAN )
-#else
 	if ( *(short *)swaptest == 1)
-#endif
 	{
 		bigendien = false;
 		BigShort = ShortSwap;
@@ -1398,6 +1389,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 	for ( ; search ; search = search->next)
 	{
 	// is the element a pak file?
+		/*printf( "PACKHANDLE: %d\n", search->pack ? search->pack->handle : -1 );*/
 		if (search->pack)
 		{
 		// look through all the pak file elements
@@ -1408,6 +1400,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 					Sys_Printf ("PackFile: %s : %s\n",pak->filename, filename);
 					if (handle)
 					{
+						/*printf( "ASSIGN PACKHANDLE: %d\n", pak->handle );*/
 						*handle = pak->handle;
 						Sys_FileSeek (pak->handle, pak->files[i].filepos);
 					}
@@ -1430,7 +1423,11 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 					continue;
 			}
 			
+#if !FORNSPIRE
 			sprintf (netpath, "%s/%s",search->filename, filename);
+#else
+			sprintf (netpath, "%s/%s.tns",search->filename, filename);
+#endif
 			
 			findtime = Sys_FileTime (netpath);
 			if (findtime == -1)
@@ -1447,7 +1444,7 @@ int COM_FindFile (char *filename, int *handle, FILE **file)
 				else
 					sprintf (cachepath,"%s%s", com_cachedir, netpath+2);
 #else
-				sprintf (cachepath,"%s/%s", com_cachedir, netpath);
+				sprintf (cachepath,"%s%s", com_cachedir, netpath);
 #endif
 
 				cachetime = Sys_FileTime (cachepath);
@@ -1536,6 +1533,8 @@ Filename are reletive to the quake directory.
 Allways appends a 0 byte.
 ============
 */
+extern int b_break_at_load;
+
 cache_user_t *loadcache;
 byte    *loadbuf;
 int             loadsize;
@@ -1553,9 +1552,13 @@ byte *COM_LoadFile (char *path, int usehunk)
 	if (h == -1)
 		return NULL;
 	
+	/*printf("COM_LoadFile End %s:%d %d, %s\n", __FILE__, __LINE__, h, path );*/
+
 // extract the filename base name for hunk tag
 	COM_FileBase (path, base);
 	
+	/*printf("COM_LoadFile End %s:%d %d %s\n", __FILE__, __LINE__, h, base );*/
+
 	if (usehunk == 1)
 		buf = Hunk_AllocName (len+1, base);
 	else if (usehunk == 2)
@@ -1579,10 +1582,21 @@ byte *COM_LoadFile (char *path, int usehunk)
 		
 	((byte *)buf)[len] = 0;
 
+	/*printf("COM_LoadFile End %s:%d %d\n", __FILE__, __LINE__, h );*/
+
 	Draw_BeginDisc ();
-	Sys_FileRead (h, buf, len);                     
+	/*printf("COM_LoadFile End %s:%d %d\n", __FILE__, __LINE__, h );*/
+#ifdef FORNSPIRE
+	/*if( b_break_at_load )
+		bkpt();*/
+#endif
+	Sys_FileRead (h, buf, len);
+	/*printf("COM_LoadFile End %s:%d %d\n", __FILE__, __LINE__, h );*/
 	COM_CloseFile (h);
+	/*printf("COM_LoadFile End %s:%d %d\n", __FILE__, __LINE__, h );*/
 	Draw_EndDisc ();
+
+	/*printf("COM_LoadFile End %s:%d\n", __FILE__, __LINE__ );*/
 
 	return buf;
 }
@@ -1633,15 +1647,20 @@ pack_t *COM_LoadPackFile (char *packfile)
 	int                             numpackfiles;
 	pack_t                  *pack;
 	int                             packhandle;
-	dpackfile_t             info[MAX_FILES_IN_PACK];
+	static dpackfile_t             info[MAX_FILES_IN_PACK];
 	unsigned short          crc;
+
+	/*printf("G+++AAAB %s\n", packfile );*/
+
 
 	if (Sys_FileOpenRead (packfile, &packhandle) == -1)
 	{
 //              Con_Printf ("Couldn't open %s\n", packfile);
 		return NULL;
 	}
+	/*printf("G+++AAABB %s\n", packfile );*/
 	Sys_FileRead (packhandle, (void *)&header, sizeof(header));
+	/*printf("G+++AAABBB %s\n", packfile );*/
 	if (header.id[0] != 'P' || header.id[1] != 'A'
 	|| header.id[2] != 'C' || header.id[3] != 'K')
 		Sys_Error ("%s is not a packfile", packfile);
@@ -1656,10 +1675,17 @@ pack_t *COM_LoadPackFile (char *packfile)
 	if (numpackfiles != PAK0_COUNT)
 		com_modified = true;    // not the original file
 
+	/*printf("G+++AAABBBB %s\n", packfile );*/
+
 	newfiles = Hunk_AllocName (numpackfiles * sizeof(packfile_t), "packfile");
 
+	/*printf("G+++AAAC %s\n", packfile );*/
 	Sys_FileSeek (packhandle, header.dirofs);
+	/*printf("G+++AAACC %s\n", packfile );*/
 	Sys_FileRead (packhandle, (void *)info, header.dirlen);
+
+	/*printf("G+++AAACCC %s\n", packfile );*/
+
 
 // crc the directory to check for modifications
 	CRC_Init (&crc);
@@ -1681,7 +1707,9 @@ pack_t *COM_LoadPackFile (char *packfile)
 	pack->handle = packhandle;
 	pack->numfiles = numpackfiles;
 	pack->files = newfiles;
-	
+
+	/*printf("G+++AAAD %s\n", packfile );*/
+
 	Con_Printf ("Added packfile %s (%i files)\n", packfile, numpackfiles);
 	return pack;
 }
@@ -1702,6 +1730,7 @@ void COM_AddGameDirectory (char *dir)
 	pack_t                  *pak;
 	char                    pakfile[MAX_OSPATH];
 
+	/*printf("G+++A\n");*/
 	strcpy (com_gamedir, dir);
 
 //
@@ -1715,12 +1744,21 @@ void COM_AddGameDirectory (char *dir)
 //
 // add any pak files in the format pak0.pak pak1.pak, ...
 //
+	/*printf("G+++AA\n");*/
+
 	for (i=0 ; ; i++)
 	{
+#ifdef FORNSPIRE
+		sprintf (pakfile, "%s/pak%i.pak.tns", dir, i);
+#else
 		sprintf (pakfile, "%s/pak%i.pak", dir, i);
+#endif
+		/*printf("G+++AAA %s\n", pakfile );*/
+
 		pak = COM_LoadPackFile (pakfile);
 		if (!pak)
 			break;
+		/*printf("G+++AAA %s +++\n", pakfile );*/
 		search = Hunk_Alloc (sizeof(searchpath_t));
 		search->pack = pak;
 		search->next = com_searchpaths;
@@ -1748,6 +1786,7 @@ void COM_InitFilesystem (void)
 // -basedir <path>
 // Overrides the system supplied base directory (under GAMENAME)
 //
+	/*printf("G+\n");*/
 	i = COM_CheckParm ("-basedir");
 	if (i && i < com_argc-1)
 		strcpy (basedir, com_argv[i+1]);
@@ -1767,6 +1806,7 @@ void COM_InitFilesystem (void)
 // Overrides the system supplied cache directory (NULL or /qcache)
 // -cachedir - will disable caching.
 //
+	/*printf("G++\n");*/
 	i = COM_CheckParm ("-cachedir");
 	if (i && i < com_argc-1)
 	{
@@ -1783,6 +1823,7 @@ void COM_InitFilesystem (void)
 //
 // start up with GAMENAME by default (id1)
 //
+	/*printf("G+++\n");*/
 	COM_AddGameDirectory (va("%s/"GAMENAME, basedir) );
 
 	if (COM_CheckParm ("-rogue"))
@@ -1794,6 +1835,7 @@ void COM_InitFilesystem (void)
 // -game <gamedir>
 // Adds basedir/gamedir as an override game
 //
+	/*printf("G++++\n");*/
 	i = COM_CheckParm ("-game");
 	if (i && i < com_argc-1)
 	{
@@ -1805,6 +1847,7 @@ void COM_InitFilesystem (void)
 // -path <dir or packfile> [<dir or packfile>] ...
 // Fully specifies the exact serach path, overriding the generated one
 //
+	/*printf("G+++++\n");*/
 	i = COM_CheckParm ("-path");
 	if (i)
 	{

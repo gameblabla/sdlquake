@@ -18,12 +18,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
-unsigned int * musicPos;
-unsigned int musicFilePos;
-unsigned char musicBuffer[32768];
-//F_HANDLE music_fh;
-int block_in;
-
 int CDAudio_Init(void);
 void CDAudio_Play(byte track, qboolean looping);
 void CDAudio_Stop(void);

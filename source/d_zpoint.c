@@ -44,3 +44,4 @@ void D_DrawZPoint (void)
 		*pdest = r_zpointdesc.color;
 	}
 }
+

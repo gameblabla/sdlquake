@@ -132,7 +132,7 @@ qboolean SV_RunThink (edict_t *ent)
 		return true;
 		
 	if (thinktime < sv.time)
-		thinktime = (float)sv.time;	// don't let things stay in the past.
+		thinktime = sv.time;	// don't let things stay in the past.
 								// it is possible to start that way
 								// by a trigger with a local time.
 	ent->v.nextthink = 0;
@@ -157,7 +157,7 @@ void SV_Impact (edict_t *e1, edict_t *e2)
 	old_self = pr_global_struct->self;
 	old_other = pr_global_struct->other;
 	
-	pr_global_struct->time = (float)sv.time;
+	pr_global_struct->time = sv.time;
 	if (e1->v.touch && e1->v.solid != SOLID_NOT)
 	{
 		pr_global_struct->self = EDICT_TO_PROG(e1);
@@ -283,7 +283,7 @@ int SV_FlyMove (edict_t *ent, float time, trace_t *steptrace)
 			blocked |= 1;		// floor
 			if (trace.ent->v.solid == SOLID_BSP)
 			{
-				ent->v.flags =	(float)((int)ent->v.flags | FL_ONGROUND);
+				ent->v.flags =	(int)ent->v.flags | FL_ONGROUND;
 				ent->v.groundentity = EDICT_TO_PROG(trace.ent);
 			}
 		}
@@ -386,7 +386,7 @@ void SV_AddGravity (edict_t *ent)
 	else
 		ent_gravity = 1.0;
 #endif
-	ent->v.velocity[2] -= (float)(ent_gravity * sv_gravity.value * host_frametime);
+	ent->v.velocity[2] -= ent_gravity * sv_gravity.value * host_frametime;
 }
 
 
@@ -502,7 +502,7 @@ void SV_PushMove (edict_t *pusher, float movetime)
 
 	// remove the onground flag for non-players
 		if (check->v.movetype != MOVETYPE_WALK)
-			check->v.flags = (float)((int)check->v.flags & ~FL_ONGROUND);
+			check->v.flags = (int)check->v.flags & ~FL_ONGROUND;
 		
 		VectorCopy (check->v.origin, entorig);
 		VectorCopy (check->v.origin, moved_from[num_moved]);
@@ -717,7 +717,7 @@ void SV_Physics_Pusher (edict_t *ent)
 			movetime = 0;
 	}
 	else
-		movetime = (float)host_frametime;
+		movetime = host_frametime;
 
 	if (movetime)
 	{
@@ -732,7 +732,7 @@ void SV_Physics_Pusher (edict_t *ent)
 	if (thinktime > oldltime && thinktime <= ent->v.ltime)
 	{
 		ent->v.nextthink = 0;
-		pr_global_struct->time = (float)sv.time;
+		pr_global_struct->time = sv.time;
 		pr_global_struct->self = EDICT_TO_PROG(ent);
 		pr_global_struct->other = EDICT_TO_PROG(sv.edicts);
 		PR_ExecuteProgram (ent->v.think);
@@ -825,9 +825,9 @@ qboolean SV_CheckWater (edict_t *ent)
 #ifdef QUAKE2
 		truecont = SV_TruePointContents (point);
 #endif
-		ent->v.watertype = (float)cont;
+		ent->v.watertype = cont;
 		ent->v.waterlevel = 1;
-		point[2] = (float)(ent->v.origin[2] + (ent->v.mins[2] + ent->v.maxs[2])*0.5);
+		point[2] = ent->v.origin[2] + (ent->v.mins[2] + ent->v.maxs[2])*0.5;
 		cont = SV_PointContents (point);
 		if (cont <= CONTENTS_WATER)
 		{
@@ -930,7 +930,7 @@ int SV_TryUnstick (edict_t *ent, vec3_t oldvel)
 		ent->v.velocity[0] = oldvel[0];
 		ent->v. velocity[1] = oldvel[1];
 		ent->v. velocity[2] = 0;
-		clip = SV_FlyMove (ent, (float)0.1, &steptrace);
+		clip = SV_FlyMove (ent, 0.1, &steptrace);
 
 		if ( fabs(oldorg[1] - ent->v.origin[1]) > 4
 		|| fabs(oldorg[0] - ent->v.origin[0]) > 4 )
@@ -968,12 +968,12 @@ void SV_WalkMove (edict_t *ent)
 // do a regular slide move unless it looks like you ran into a step
 //
 	oldonground = (int)ent->v.flags & FL_ONGROUND;
-	ent->v.flags = (float)((int)ent->v.flags & ~FL_ONGROUND);
+	ent->v.flags = (int)ent->v.flags & ~FL_ONGROUND;
 	
 	VectorCopy (ent->v.origin, oldorg);
 	VectorCopy (ent->v.velocity, oldvel);
 	
-	clip = SV_FlyMove (ent, (float)host_frametime, &steptrace);
+	clip = SV_FlyMove (ent, host_frametime, &steptrace);
 
 	if ( !(clip & 2) )
 		return;		// move didn't block on a step
@@ -1001,7 +1001,7 @@ void SV_WalkMove (edict_t *ent)
 	VectorCopy (vec3_origin, upmove);
 	VectorCopy (vec3_origin, downmove);
 	upmove[2] = STEPSIZE;
-	downmove[2] = (float)(-STEPSIZE + oldvel[2]*host_frametime);
+	downmove[2] = -STEPSIZE + oldvel[2]*host_frametime;
 
 // move up
 	SV_PushEntity (ent, upmove);	// FIXME: don't link?
@@ -1010,7 +1010,7 @@ void SV_WalkMove (edict_t *ent)
 	ent->v.velocity[0] = oldvel[0];
 	ent->v. velocity[1] = oldvel[1];
 	ent->v. velocity[2] = 0;
-	clip = SV_FlyMove (ent, (float)host_frametime, &steptrace);
+	clip = SV_FlyMove (ent, host_frametime, &steptrace);
 
 // check for stuckness, possibly due to the limited precision of floats
 // in the clipping hulls
@@ -1034,7 +1034,7 @@ void SV_WalkMove (edict_t *ent)
 	{
 		if (ent->v.solid == SOLID_BSP)
 		{
-			ent->v.flags =	(float)((int)ent->v.flags | FL_ONGROUND);
+			ent->v.flags =	(int)ent->v.flags | FL_ONGROUND;
 			ent->v.groundentity = EDICT_TO_PROG(downtrace.ent);
 		}
 	}
@@ -1064,7 +1064,7 @@ void SV_Physics_Client (edict_t	*ent, int num)
 //
 // call standard client pre-think
 //	
-	pr_global_struct->time = (float)sv.time;
+	pr_global_struct->time = sv.time;
 	pr_global_struct->self = EDICT_TO_PROG(ent);
 	PR_ExecuteProgram (pr_global_struct->PlayerPreThink);
 	
@@ -1107,13 +1107,13 @@ void SV_Physics_Client (edict_t	*ent, int num)
 	case MOVETYPE_FLY:
 		if (!SV_RunThink (ent))
 			return;
-		SV_FlyMove (ent, (float)host_frametime, NULL);
+		SV_FlyMove (ent, host_frametime, NULL);
 		break;
 		
 	case MOVETYPE_NOCLIP:
 		if (!SV_RunThink (ent))
 			return;
-		VectorMA (ent->v.origin, (float)host_frametime, ent->v.velocity, ent->v.origin);
+		VectorMA (ent->v.origin, host_frametime, ent->v.velocity, ent->v.origin);
 		break;
 		
 	default:
@@ -1125,7 +1125,7 @@ void SV_Physics_Client (edict_t	*ent, int num)
 //		
 	SV_LinkEdict (ent, true);
 
-	pr_global_struct->time = (float)sv.time;
+	pr_global_struct->time = sv.time;
 	pr_global_struct->self = EDICT_TO_PROG(ent);
 	PR_ExecuteProgram (pr_global_struct->PlayerPostThink);
 }
@@ -1175,8 +1175,8 @@ void SV_Physics_Noclip (edict_t *ent)
 	if (!SV_RunThink (ent))
 		return;
 	
-	VectorMA (ent->v.angles, (float)host_frametime, ent->v.avelocity, ent->v.angles);
-	VectorMA (ent->v.origin, (float)host_frametime, ent->v.velocity, ent->v.origin);
+	VectorMA (ent->v.angles, host_frametime, ent->v.avelocity, ent->v.angles);
+	VectorMA (ent->v.origin, host_frametime, ent->v.velocity, ent->v.origin);
 
 	SV_LinkEdict (ent, false);
 }
@@ -1210,7 +1210,7 @@ void SV_CheckWaterTransition (edict_t *ent)
 #endif
 	if (!ent->v.watertype)
 	{	// just spawned here
-		ent->v.watertype = (float)cont;
+		ent->v.watertype = cont;
 		ent->v.waterlevel = 1;
 		return;
 	}
@@ -1221,7 +1221,7 @@ void SV_CheckWaterTransition (edict_t *ent)
 		{	// just crossed into water
 			SV_StartSound (ent, 0, "misc/h2ohit1.wav", 255, 1);
 		}		
-		ent->v.watertype = (float)cont;
+		ent->v.watertype = cont;
 		ent->v.waterlevel = 1;
 	}
 	else
@@ -1231,7 +1231,7 @@ void SV_CheckWaterTransition (edict_t *ent)
 			SV_StartSound (ent, 0, "misc/h2ohit1.wav", 255, 1);
 		}		
 		ent->v.watertype = CONTENTS_EMPTY;
-		ent->v.waterlevel = (float)cont;
+		ent->v.waterlevel = cont;
 	}
 }
 
@@ -1293,13 +1293,13 @@ void SV_Physics_Toss (edict_t *ent)
 #endif
 
 // move angles
-	VectorMA (ent->v.angles, (float)host_frametime, ent->v.avelocity, ent->v.angles);
+	VectorMA (ent->v.angles, host_frametime, ent->v.avelocity, ent->v.angles);
 
 // move origin
 #ifdef QUAKE2
 	VectorAdd (ent->v.velocity, ent->v.basevelocity, ent->v.velocity);
 #endif
-	VectorScale (ent->v.velocity, (float)host_frametime, move);
+	VectorScale (ent->v.velocity, host_frametime, move);
 	trace = SV_PushEntity (ent, move);
 #ifdef QUAKE2
 	VectorSubtract (ent->v.velocity, ent->v.basevelocity, ent->v.velocity);
@@ -1329,7 +1329,7 @@ void SV_Physics_Toss (edict_t *ent)
 		if (ent->v.velocity[2] < 60 || ent->v.movetype != MOVETYPE_BOUNCE)
 #endif
 		{
-			ent->v.flags = (float)((int)ent->v.flags | FL_ONGROUND);
+			ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
 			ent->v.groundentity = EDICT_TO_PROG(trace.ent);
 			VectorCopy (vec3_origin, ent->v.velocity);
 			VectorCopy (vec3_origin, ent->v.avelocity);
@@ -1479,7 +1479,7 @@ void SV_Physics_Step (edict_t *ent)
 
 		SV_AddGravity (ent);
 		SV_CheckVelocity (ent);
-		SV_FlyMove (ent, (float)host_frametime, NULL);
+		SV_FlyMove (ent, host_frametime, NULL);
 		SV_LinkEdict (ent, true);
 
 		if ( (int)ent->v.flags & FL_ONGROUND )	// just hit ground
@@ -1512,7 +1512,7 @@ void SV_Physics (void)
 // let the progs know that a new frame has started
 	pr_global_struct->self = EDICT_TO_PROG(sv.edicts);
 	pr_global_struct->other = EDICT_TO_PROG(sv.edicts);
-	pr_global_struct->time = (float)sv.time;
+	pr_global_struct->time = sv.time;
 	PR_ExecuteProgram (pr_global_struct->StartFrame);
 
 //SV_CheckAllEnts ();
@@ -1579,7 +1579,7 @@ trace_t SV_Trace_Toss (edict_t *ent, edict_t *ignore)
 	save_frametime = host_frametime;
 	host_frametime = 0.05;
 
-	Q_memcpy(&tempent, ent, sizeof(edict_t));
+	memcpy(&tempent, ent, sizeof(edict_t));
 	tent = &tempent;
 
 	while (1)

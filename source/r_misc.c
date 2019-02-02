@@ -39,6 +39,7 @@ void R_CheckVariables (void)
 	}
 }
 
+
 /*
 ============
 Show
@@ -57,6 +58,7 @@ void Show (void)
 	VID_Update (&vr);
 }
 
+
 /*
 ====================
 R_TimeRefresh_f
@@ -71,12 +73,12 @@ void R_TimeRefresh_f (void)
 	int			startangle;
 	vrect_t		vr;
 
-	startangle = (int)r_refdef.viewangles[1];
+	startangle = r_refdef.viewangles[1];
 	
-	start = (float)Sys_FloatTime ();
+	start = Sys_FloatTime ();
 	for (i=0 ; i<128 ; i++)
 	{
-		r_refdef.viewangles[1] = (float)(i/128.0*360.0);
+		r_refdef.viewangles[1] = i/128.0*360.0;
 
 		VID_LockBuffer ();
 
@@ -91,11 +93,11 @@ void R_TimeRefresh_f (void)
 		vr.pnext = NULL;
 		VID_Update (&vr);
 	}
-	stop = (float)Sys_FloatTime ();
+	stop = Sys_FloatTime ();
 	time = stop-start;
 	Con_Printf ("%f seconds (%f fps)\n", time, 128/time);
 	
-	r_refdef.viewangles[1] = (float)startangle;
+	r_refdef.viewangles[1] = startangle;
 }
 
 
@@ -119,7 +121,7 @@ void R_LineGraph (int x, int y, int h)
 	
 	dest = vid.buffer + vid.rowbytes*y + x;
 	
-	s = (int)r_graphheight.value;
+	s = r_graphheight.value;
 	
 	if (h>s)
 		h = s;
@@ -135,7 +137,6 @@ void R_LineGraph (int x, int y, int h)
 		*(dest-vid.rowbytes) = 0x30;
 	}
 }
-
 
 /*
 ==============
@@ -154,9 +155,9 @@ void R_TimeGraph (void)
 	static byte	r_timings[MAX_TIMINGS];
 	int		x;
 	
-	r_time2 = (float)Sys_FloatTime ();
+	r_time2 = Sys_FloatTime ();
 
-	a = (int)((r_time2-r_time1)/0.01);
+	a = (r_time2-r_time1)/0.01;
 //a = fabs(mouse_y * 0.05);
 //a = (int)((r_refdef.vieworg[2] + 1024)/1)%(int)r_graphheight.value;
 //a = fabs(velocity[0])/20;
@@ -195,7 +196,7 @@ void R_PrintTimes (void)
 	float	r_time2;
 	float		ms;
 
-	r_time2 = (float)Sys_FloatTime ();
+	r_time2 = Sys_FloatTime ();
 
 	ms = 1000* (r_time2 - r_time1);
 	
@@ -214,7 +215,7 @@ void R_PrintDSpeeds (void)
 {
 	float	ms, dp_time, r_time2, rw_time, db_time, se_time, de_time, dv_time;
 
-	r_time2 = (float)Sys_FloatTime ();
+	r_time2 = Sys_FloatTime ();
 
 	dp_time = (dp_time2 - dp_time1) * 1000;
 	rw_time = (rw_time2 - rw_time1) * 1000;
@@ -285,19 +286,29 @@ void R_TransformFrustum (void)
 		v2[2] = v[1]*vright[2] + v[2]*vup[2] + v[0]*vpn[2];
 
 		VectorCopy (v2, view_clipplanes[i].normal);
+
 		view_clipplanes[i].dist = DotProduct (modelorg, v2);
-
-#ifdef USE_PQ_OPT2
-		if (!v2[0]) view_clipplanes_fxp[i].normal[0]=2<29;
-		else view_clipplanes_fxp[i].normal[0]=(int)(4096.0f/v2[0]);
-		if (!v2[1]) view_clipplanes_fxp[i].normal[1]=2<29;
-		else view_clipplanes_fxp[i].normal[1]=(int)(4096.0f/v2[1]);
-		if (!v2[2]) view_clipplanes_fxp[i].normal[2]=2<29;
-		else view_clipplanes_fxp[i].normal[2]=(int)(4096.0f/v2[2]);
-
-		view_clipplanes_fxp[i].dist=(int)(view_clipplanes[i].dist*128.0);
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED
+		view_clipplanes[i].idx = (byte)i;
 #endif
 	}
+
+#if RECURSIVE_WORLD_NODE_CLIP_FIXED
+	for( i = 0; i < 3; i++ )
+	{
+		FIXED_FLOATTOFIXED( vright[i], rgf16_vright[i], 28 );
+		FIXED_FLOATTOFIXED( vup[i], rgf16_vup[i], 28 );
+		FIXED_FLOATTOFIXED( vpn[i], rgf16_vpn[i], 28 );
+		FIXED_FLOATTOFIXED( modelorg[i], rgf16_modelorg[i], 16 );
+	}
+	for (i=0 ; i<4 ; i++)
+	{
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 0 ], view_clipplanes_fixed[i].normal[ 0 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 1 ], view_clipplanes_fixed[i].normal[ 1 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].normal[ 2 ], view_clipplanes_fixed[i].normal[ 2 ], 28 );
+		FIXED_FLOATTOFIXED( view_clipplanes[i].dist, view_clipplanes_fixed[i].f16_dist, 16 );
+	}
+#endif
 }
 
 
@@ -315,37 +326,6 @@ void TransformVector (vec3_t in, vec3_t out)
 	out[2] = DotProduct(in,vpn);		
 }
 
-#ifdef USE_PQ_OPT
-//JB: Optimization
-static float last;
-static fpvec3 fpvright, fpvup, fpvpn;
-void FPTransformVector( fpvec3 in, fpvec3 out )
-{
-	if (last != vright[0])
-	{
-		last = vright[0];
-		fpvright[0] = (int)(16384.0f * vright[0]); 
-		fpvright[1] = (int)(16384.0f * vright[1]); 
-		fpvright[2] = (int)(16384.0f * vright[2]); 
-		fpvup[0] = (int)(16384.0f * vup[0]); 
-		fpvup[1] = (int)(16384.0f * vup[1]); 
-		fpvup[2] = (int)(16384.0f * vup[2]); 
-		fpvpn[0] = (int)(16384.0f * vpn[0]); 
-		fpvpn[1] = (int)(16384.0f * vpn[1]); 
-		fpvpn[2] = (int)(16384.0f * vpn[2]); 
-	}
-	out[0] = (in[0] * fpvright[0] +
-			 in[1] * fpvright[1] +
-			 in[2] * fpvright[2]) >> 4;
-	out[1] = (in[0] * fpvup[0] +
-			 in[1] * fpvup[1] +
-			 in[2] * fpvup[2]) >> 4;
-	out[2] = (in[0] * fpvpn[0] +
-			 in[1] * fpvpn[1] +
-			 in[2] * fpvpn[2]) >> 4;
-}
-
-#endif
 #endif
 
 
@@ -364,6 +344,7 @@ void R_TransformPlane (mplane_t *p, float *normal, float *dist)
 	TransformVector (p->normal, normal);
 }
 
+
 /*
 ===============
 R_SetUpFrustumIndexes
@@ -371,7 +352,7 @@ R_SetUpFrustumIndexes
 */
 void R_SetUpFrustumIndexes (void)
 {
-	static int		i, j, *pindex;
+	int		i, j, *pindex;
 
 	pindex = r_frustum_indexes;
 
@@ -379,26 +360,22 @@ void R_SetUpFrustumIndexes (void)
 	{
 		for (j=0 ; j<3 ; j++)
 		{
-			if (view_clipplanes[i].normal[j] < 0.0)
+			if (view_clipplanes[i].normal[j] < 0)
 			{
 				pindex[j] = j;
 				pindex[j+3] = j+3;
-				//Dan:
-//				pindex[j+1]=pindex[j+2]=0;
 			}
 			else
 			{
 				pindex[j] = j+3;
 				pindex[j+3] = j;
-//				pindex[j+1]=pindex[j+2]=0;
 			}
 		}
+
 	// FIXME: do just once at start
 		pfrustum_indexes[i] = pindex;
 		pindex += 6;
 	}
-
-//	VerifyFrustumIndexes("setup");
 }
 
 
@@ -442,7 +419,7 @@ void R_SetupFrame (void)
 				r_numallocatededges, r_maxedgesseen);
 	}
 
-	r_refdef.ambientlight = (int)r_ambient.value;
+	r_refdef.ambientlight = r_ambient.value;
 
 	if (r_refdef.ambientlight < 0)
 		r_refdef.ambientlight = 0;
@@ -485,8 +462,8 @@ r_refdef.viewangles[2]=    0;
 	{
 		if (r_dowarp)
 		{
-			if ((vid.width <= (unsigned int)vid.maxwarpwidth) &&
-				(vid.height <= (unsigned int)vid.maxwarpheight))
+			if ((vid.width <= vid.maxwarpwidth) &&
+				(vid.height <= vid.maxwarpheight))
 			{
 				vrect.x = 0;
 				vrect.y = 0;
@@ -497,18 +474,18 @@ r_refdef.viewangles[2]=    0;
 			}
 			else
 			{
-				w = (float)vid.width;
-				h = (float)vid.height;
+				w = vid.width;
+				h = vid.height;
 
 				if (w > vid.maxwarpwidth)
 				{
 					h *= (float)vid.maxwarpwidth / w;
-					w = (float)vid.maxwarpwidth;
+					w = vid.maxwarpwidth;
 				}
 
 				if (h > vid.maxwarpheight)
 				{
-					h = (float)vid.maxwarpheight;
+					h = vid.maxwarpheight;
 					w *= (float)vid.maxwarpheight / h;
 				}
 
@@ -547,9 +524,7 @@ r_refdef.viewangles[2]=    0;
 
 	R_SetSkyFrame ();
 
-//	VerifyFrustumIndexes("bef");
 	R_SetUpFrustumIndexes ();
-//	VerifyFrustumIndexes("aft");
 
 	r_cache_thrash = false;
 

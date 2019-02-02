@@ -102,8 +102,8 @@ void R_MakeSky (void)
 	unsigned	*pnewsky;
 	static int	xlast = -1, ylast = -1;
 
-	xshift = (int)(skytime*skyspeed);
-	yshift = (int)(skytime*skyspeed);
+	xshift = skytime*skyspeed;
+	yshift = skytime*skyspeed;
 
 	if ((xshift == xlast) && (yshift == ylast))
 		return;
@@ -166,14 +166,11 @@ void R_GenSkyTile (void *pdest)
 	unsigned	*pnewsky;
 	unsigned	*pd;
 
-	xshift = (int)(skytime*skyspeed);
-	yshift = (int)(skytime*skyspeed);
+	xshift = skytime*skyspeed;
+	yshift = skytime*skyspeed;
 
 	pnewsky = (unsigned *)&newsky[0];
 	pd = (unsigned *)pdest;
-
-//	//Dan:
-//	memset(pd, 0, SKYSIZE*SKYSIZE);
 
 	for (y=0 ; y<SKYSIZE ; y++)
 	{
@@ -212,7 +209,6 @@ void R_GenSkyTile (void *pdest)
 
 		pnewsky += 128 / sizeof (unsigned);
 	}
-
 }
 
 
@@ -229,14 +225,11 @@ void R_GenSkyTile16 (void *pdest)
 	byte			*pnewsky;
 	unsigned short	*pd;
 
-	xshift = (int)(skytime * skyspeed);
-	yshift = (int)(skytime * skyspeed);
+	xshift = skytime * skyspeed;
+	yshift = skytime * skyspeed;
 
 	pnewsky = (byte *)&newsky[0];
 	pd = (unsigned short *)pdest;
-
-//	//Dan:
-//	memset(pd, 0, SKYSIZE*SKYSIZE);
 
 	for (y=0 ; y<SKYSIZE ; y++)
 	{
@@ -270,17 +263,18 @@ void R_SetSkyFrame (void)
 	int		g, s1, s2;
 	float	temp;
 
-	skyspeed = (float)iskyspeed;
-	skyspeed2 = (float)iskyspeed2;
+	skyspeed = iskyspeed;
+	skyspeed2 = iskyspeed2;
 
 	g = GreatestCommonDivisor (iskyspeed, iskyspeed2);
 	s1 = iskyspeed / g;
 	s2 = iskyspeed2 / g;
-	temp = (float)(SKYSIZE * s1 * s2);
+	temp = SKYSIZE * s1 * s2;
 
-	skytime = (float)(cl.time - ((int)(cl.time / temp) * temp));
+	skytime = cl.time - ((int)(cl.time / temp) * temp);
 	
 
 	r_skymade = 0;
 }
+
 

@@ -5,6 +5,9 @@
 *.elf
 *.cfg
 *.dge
+*.zip
+sdlquake
+quake.elf
 id1
 id1/*.pak
 id1/*.cfg
@@ -14,4 +17,5 @@ source/net/*.o
 source/local_net/*.o
 source/portable/*.o
 source/pc/*.o
+release/
 core

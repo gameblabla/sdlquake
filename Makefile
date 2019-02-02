@@ -17,7 +17,7 @@ STRIP :=
 
 # Linker
 LDFLAGS = -lSDL -lz -lm
-CFLAGS = -O0 -g -Wall -I/usr/include/SDL
+CFLAGS = -O0 -g3 -Wall -I/usr/include/SDL -DARCADE_MINI
 CXXFLAGS = 
 
 # Include
@@ -26,23 +26,21 @@ INCLUDES :=
 # Libs
 LIBS += 
 
-NET_FOLDER = local_net
+NET_FOLDER = 
 
-CFLAGS +=  -Isource/$(NET_FOLDER) -Isource -Isource/pc
+CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
 CFILES = 			source/$(NET_FOLDER)/host.c \
 					source/$(NET_FOLDER)/menu.c \
 					source/$(NET_FOLDER)/screen.c \
-					source/$(NET_FOLDER)/net_dgrm.c \
 					source/$(NET_FOLDER)/net_loop.c \
 					source/$(NET_FOLDER)/net_main.c \
-					source/$(NET_FOLDER)/net_vcr.c \
-					source/$(NET_FOLDER)/net_udp.c \
-					source/$(NET_FOLDER)/net_bsd.c
+					source/$(NET_FOLDER)/net_nspire.c \
+					source/$(NET_FOLDER)/net_vcr.c
 
-CFILES	+=			source/pc/pr_cmds.c \
-					source/pc/pr_edict.c \
-					source/pc/pr_exec.c \
-					source/pc/sv_main.c \
+CFILES	+=			source/sv_main.c \
+					source/pr_exec.c \
+					source/pr_cmds.c \
+					source/pr_edict.c \
 					source/cd_null.c \
 					source/vid_sdl.c \
 					source/snd_sdl.c \
@@ -100,7 +98,8 @@ CFILES	+=			source/pc/pr_cmds.c \
 					source/view.c \
 					source/wad.c \
 					source/world.c \
-					source/zone.c
+					source/zone.c \
+					source/d_scan_nspirec.c
 
 #
 #========================================(Compile)

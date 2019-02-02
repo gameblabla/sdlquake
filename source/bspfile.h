@@ -87,16 +87,7 @@ typedef struct
 	int			visleafs;		// not including the solid leaf 0
 	int			firstface, numfaces;
 } dmodel_t;
-/*
-typedef struct
-{
-	fixedpoint_t	mins[3], maxs[3];
-	fixedpoint_t	origin[3];
-	int			headnode[MAX_MAP_HULLS];
-	int			visleafs;		// not including the solid leaf 0
-	int			firstface, numfaces;
-} dmodel_FPM_t;
-*/
+
 typedef struct
 {
 	int			version;	

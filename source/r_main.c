@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -22,12 +22,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 
-//#define	PASSAGES
+
+#ifdef FORNSPIRE
+extern void nspire_stack_redirect( void (*f_func)(void), void *new_stack );
+extern void *p_nspire_stack_redirect;
+#endif
+
+//define	PASSAGES
 
 void		*colormap;
 vec3_t		viewlightvec;
 alight_t	r_viewlighting = {128, 192, viewlightvec};
-
 float		r_time1;
 int			r_numallocatededges;
 qboolean	r_drawpolys;
@@ -44,9 +49,6 @@ qboolean	r_dowarp, r_dowarpold, r_viewchanged;
 int			numbtofpolys;
 btofpoly_t	*pbtofpolys;
 mvertex_t	*r_pcurrentvertbase;
-#ifdef USE_PQ_OPT2
-mvertex_fxp_t	*r_pcurrentvertbase_fxp;
-#endif
 
 int			c_surf;
 int			r_maxsurfsseen, r_maxedgesseen, r_cnumsurfs;
@@ -67,18 +69,10 @@ vec3_t	vpn, base_vpn;
 vec3_t	vright, base_vright;
 vec3_t	r_origin;
 
-#ifdef USE_PQ_OPT1
-int		vup_fxp[3];
-int		vpn_fxp[3];
-int		vright_fxp[3];
-int		xscale_fxp, yscale_fxp;
-int		xcenter_fxp, ycenter_fxp;
-int		r_refdef_fvrectx_adj_fxp;
-int		r_refdef_fvrectright_adj_fxp;
-int		r_refdef_fvrecty_adj_fxp;
-int		r_refdef_fvrectbottom_adj_fxp;
-extern int		modelorg_fxp[3];
+#if PARTIALY_FIXED_TRANSFORM
+fixed16_t rgf16_vup[ 3 ], rgf16_vpn[ 3 ], rgf16_vright[ 3 ], rgf16_modelorg[ 3 ];
 #endif
+
 //
 // screen size info
 //
@@ -88,12 +82,12 @@ float		xscale, yscale;
 float		xscaleinv, yscaleinv;
 float		xscaleshrink, yscaleshrink;
 float		aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
-fixedpoint_t	aliasxscaleFPM, aliasyscaleFPM, aliasxcenterFPM, aliasycenterFPM;
-int		screenwidth;
-#ifdef USE_PQ_OPT3
-int xscaleinv_fxp, yscaleinv_fxp;
-int	xcenter_fxp, ycenter_fxp;
+
+#if PARTIALY_FIXED_TRANSFORM
+fixed16_t f16_xscale, f16_yscale, f16_xcenter, f16_ycenter;
 #endif
+
+int		screenwidth;
 
 float	pixelAspect;
 float	screenAspect;
@@ -140,9 +134,7 @@ cvar_t	r_speeds = {"r_speeds","0"};
 cvar_t	r_timegraph = {"r_timegraph","0"};
 cvar_t	r_graphheight = {"r_graphheight","10"};
 cvar_t	r_clearcolor = {"r_clearcolor","2"};
-cvar_t	r_skycolor = {"r_skycolor", "4"};
-cvar_t	r_fastsky = {"r_fastsky", "0"};
-cvar_t	r_waterwarp = {"r_waterwarp", "0"};
+cvar_t	r_waterwarp = {"r_waterwarp","1"};
 cvar_t	r_fullbright = {"r_fullbright","0"};
 cvar_t	r_drawentities = {"r_drawentities","1"};
 cvar_t	r_drawviewmodel = {"r_drawviewmodel","1"};
@@ -158,10 +150,6 @@ cvar_t	r_maxedges = {"r_maxedges", "0"};
 cvar_t	r_numedges = {"r_numedges", "0"};
 cvar_t	r_aliastransbase = {"r_aliastransbase", "200"};
 cvar_t	r_aliastransadj = {"r_aliastransadj", "100"};
-cvar_t	r_fastturb = {"r_fastturb", "0"};
-
-//Dan East: Added:
-cvar_t	r_maxparticles = {"r_maxparticles","512"};
 
 extern cvar_t	scr_fov;
 
@@ -177,16 +165,16 @@ void	R_InitTextures (void)
 {
 	int		x,y, m;
 	byte	*dest;
-
+	
 // create a simple checkerboard texture for the default
 	r_notexture_mip = Hunk_AllocName (sizeof(texture_t) + 16*16+8*8+4*4+2*2, "notexture");
-
+	
 	r_notexture_mip->width = r_notexture_mip->height = 16;
 	r_notexture_mip->offsets[0] = sizeof(texture_t);
 	r_notexture_mip->offsets[1] = r_notexture_mip->offsets[0] + 16*16;
 	r_notexture_mip->offsets[2] = r_notexture_mip->offsets[1] + 8*8;
 	r_notexture_mip->offsets[3] = r_notexture_mip->offsets[2] + 4*4;
-
+	
 	for (m=0 ; m<4 ; m++)
 	{
 		dest = (byte *)r_notexture_mip + r_notexture_mip->offsets[m];
@@ -198,7 +186,7 @@ void	R_InitTextures (void)
 				else
 					*dest++ = 0xff;
 			}
-	}
+	}	
 }
 
 /*
@@ -209,14 +197,14 @@ R_Init
 void R_Init (void)
 {
 	int		dummy;
-
+	
 // get stack position so we can guess if we are going to overflow
 	r_stack_start = (byte *)&dummy;
-
+	
 	R_InitTurb ();
-
-	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);
-	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
+	
+	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);	
+	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);	
 
 	Cvar_RegisterVariable (&r_draworder);
 	Cvar_RegisterVariable (&r_speeds);
@@ -226,9 +214,6 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_ambient);
 	Cvar_RegisterVariable (&r_clearcolor);
 	Cvar_RegisterVariable (&r_waterwarp);
-	Cvar_RegisterVariable (&r_skycolor);
-	Cvar_RegisterVariable (&r_fastsky);
-	Cvar_RegisterVariable (&r_fastturb);
 	Cvar_RegisterVariable (&r_fullbright);
 	Cvar_RegisterVariable (&r_drawentities);
 	Cvar_RegisterVariable (&r_drawviewmodel);
@@ -242,8 +227,6 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_numedges);
 	Cvar_RegisterVariable (&r_aliastransbase);
 	Cvar_RegisterVariable (&r_aliastransadj);
-	//Dan East:
-	Cvar_RegisterVariable (&r_maxparticles);
 
 	Cvar_SetValue ("r_maxedges", (float)NUMSTACKEDGES);
 	Cvar_SetValue ("r_maxsurfs", (float)NUMSTACKSURFACES);
@@ -277,22 +260,20 @@ R_NewMap
 void R_NewMap (void)
 {
 	int		i;
-
+	
 // clear out efrags in case the level hasn't been reloaded
 // FIXME: is this one short?
 	for (i=0 ; i<cl.worldmodel->numleafs ; i++)
 		cl.worldmodel->leafs[i].efrags = NULL;
-
+		 	
 	r_viewleaf = NULL;
 	R_ClearParticles ();
 
-	r_cnumsurfs = (int)r_maxsurfs.value;
+	r_cnumsurfs = r_maxsurfs.value;
 
 	if (r_cnumsurfs <= MINSURFACES)
 		r_cnumsurfs = MINSURFACES;
 
-//	//Dan: testing:
-//	r_cnumsurfs=100;
 	if (r_cnumsurfs > NUMSTACKSURFACES)
 	{
 		surfaces = Hunk_AllocName (r_cnumsurfs * sizeof(surf_t), "surfaces");
@@ -312,13 +293,10 @@ void R_NewMap (void)
 	r_maxedgesseen = 0;
 	r_maxsurfsseen = 0;
 
-	r_numallocatededges = (int)r_maxedges.value;
+	r_numallocatededges = r_maxedges.value;
 
 	if (r_numallocatededges < MINEDGES)
 		r_numallocatededges = MINEDGES;
-
-//	//Dan: testing:
-//	r_numallocatededges=600;
 
 	if (r_numallocatededges <= NUMSTACKEDGES)
 	{
@@ -336,6 +314,7 @@ void R_NewMap (void)
 CreatePassages ();
 #endif
 }
+
 
 /*
 ===============
@@ -356,14 +335,14 @@ void R_SetVrect (vrect_t *pvrectin, vrect_t *pvrect, int lineadj)
 	size /= 100;
 
 	h = pvrectin->height - lineadj;
-	pvrect->width = (int)(pvrectin->width * size);
+	pvrect->width = pvrectin->width * size;
 	if (pvrect->width < 96)
 	{
-		size = (float)(96.0 / pvrectin->width);
+		size = 96.0 / pvrectin->width;
 		pvrect->width = 96;	// min for icons
 	}
 	pvrect->width &= ~7;
-	pvrect->height = (int)(pvrectin->height * size);
+	pvrect->height = pvrectin->height * size;
 	if (pvrect->height > pvrectin->height - lineadj)
 		pvrect->height = pvrectin->height - lineadj;
 
@@ -381,6 +360,7 @@ void R_SetVrect (vrect_t *pvrectin, vrect_t *pvrect, int lineadj)
 	}
 }
 
+
 /*
 ===============
 R_ViewChanged
@@ -389,7 +369,6 @@ Called every time the vid structure or r_refdef changes.
 Guaranteed to be called before the first refresh
 ===============
 */
-#ifndef USE_PQ_OPT
 void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 {
 	int		i;
@@ -399,20 +378,20 @@ void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 
 	R_SetVrect (pvrect, &r_refdef.vrect, lineadj);
 
-	r_refdef.horizontalFieldOfView = (float)(2.0 * tan (r_refdef.fov_x/360*M_PI));
+	r_refdef.horizontalFieldOfView = 2.0 * tan (r_refdef.fov_x/360*M_PI);
 	r_refdef.fvrectx = (float)r_refdef.vrect.x;
-	r_refdef.fvrectx_adj = (float)(r_refdef.vrect.x - 0.5);
+	r_refdef.fvrectx_adj = (float)r_refdef.vrect.x - 0.5;
 	r_refdef.vrect_x_adj_shift20 = (r_refdef.vrect.x<<20) + (1<<19) - 1;
 	r_refdef.fvrecty = (float)r_refdef.vrect.y;
-	r_refdef.fvrecty_adj = (float)(r_refdef.vrect.y - 0.5);
+	r_refdef.fvrecty_adj = (float)r_refdef.vrect.y - 0.5;
 	r_refdef.vrectright = r_refdef.vrect.x + r_refdef.vrect.width;
 	r_refdef.vrectright_adj_shift20 = (r_refdef.vrectright<<20) + (1<<19) - 1;
 	r_refdef.fvrectright = (float)r_refdef.vrectright;
-	r_refdef.fvrectright_adj = (float)(r_refdef.vrectright - 0.5);
-	r_refdef.vrectrightedge = (float)(r_refdef.vrectright - 0.99);
+	r_refdef.fvrectright_adj = (float)r_refdef.vrectright - 0.5;
+	r_refdef.vrectrightedge = (float)r_refdef.vrectright - 0.99;
 	r_refdef.vrectbottom = r_refdef.vrect.y + r_refdef.vrect.height;
 	r_refdef.fvrectbottom = (float)r_refdef.vrectbottom;
-	r_refdef.fvrectbottom_adj = (float)(r_refdef.vrectbottom - 0.5);
+	r_refdef.fvrectbottom_adj = (float)r_refdef.vrectbottom - 0.5;
 
 	r_refdef.aliasvrect.x = (int)(r_refdef.vrect.x * r_aliasuvscale);
 	r_refdef.aliasvrect.y = (int)(r_refdef.vrect.y * r_aliasuvscale);
@@ -426,7 +405,7 @@ void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 	pixelAspect = aspect;
 	xOrigin = r_refdef.xOrigin;
 	yOrigin = r_refdef.yOrigin;
-
+	
 	screenAspect = r_refdef.vrect.width*pixelAspect /
 			r_refdef.vrect.height;
 // 320*200 1.0 pixelAspect = 1.6 screenAspect
@@ -441,64 +420,65 @@ void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 // the polygon rasterization will never render in the first row or column
 // but will definately render in the [range] row and column, so adjust the
 // buffer origin to get an exact edge to edge fill
-	xcenter = (float)(((float)r_refdef.vrect.width * XCENTERING) +
-			r_refdef.vrect.x - 0.5);
+	xcenter = ((float)r_refdef.vrect.width * XCENTERING) +
+			r_refdef.vrect.x - 0.5;
 	aliasxcenter = xcenter * r_aliasuvscale;
-	ycenter = (float)(((float)r_refdef.vrect.height * YCENTERING) +
-			r_refdef.vrect.y - 0.5);
+	ycenter = ((float)r_refdef.vrect.height * YCENTERING) +
+			r_refdef.vrect.y - 0.5;
 	aliasycenter = ycenter * r_aliasuvscale;
 
 	xscale = r_refdef.vrect.width / r_refdef.horizontalFieldOfView;
 	aliasxscale = xscale * r_aliasuvscale;
-	xscaleinv = (float)(1.0 / xscale);
+	xscaleinv = 1.0 / xscale;
 	yscale = xscale * pixelAspect;
 	aliasyscale = yscale * r_aliasuvscale;
-	yscaleinv = (float)(1.0 / yscale);
+	yscaleinv = 1.0 / yscale;
 	xscaleshrink = (r_refdef.vrect.width-6)/r_refdef.horizontalFieldOfView;
 	yscaleshrink = xscaleshrink*pixelAspect;
 
-#ifdef USE_PQ_OPT1
-	xscale_fxp=(int)(xscale*8388608.0);	//9.23
-	yscale_fxp=(int)(yscale*8388608.0);	//9.23
-	xcenter_fxp=(int)(xcenter*4194304.0);	//10.22
-	ycenter_fxp=(int)(ycenter*4194304.0);	//10.22
-	r_refdef_fvrectx_adj_fxp=(int)(r_refdef.fvrectx_adj*4194304.0);
-	r_refdef_fvrectright_adj_fxp=(int)(r_refdef.fvrectright_adj*4194304.0);
-	r_refdef_fvrecty_adj_fxp=(int)(r_refdef.fvrecty_adj*4194304.0);
-	r_refdef_fvrectbottom_adj_fxp=(int)(r_refdef.fvrectbottom_adj*4194304.0);
+#if PARTIALY_FIXED_TRANSFORM
+	FIXED_FLOATTOFIXED( xscale, f16_xscale, 16 );
+	FIXED_FLOATTOFIXED( yscale, f16_yscale, 16 );
+	FIXED_FLOATTOFIXED( xcenter, f16_xcenter, 16 );
+	FIXED_FLOATTOFIXED( ycenter, f16_ycenter, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectx_adj, r_refdef.f16_vrectx_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrecty_adj, r_refdef.f16_vrecty_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectright_adj, r_refdef.f16_vrectright_adj, 16 );
+	FIXED_FLOATTOFIXED( r_refdef.fvrectbottom_adj, r_refdef.f16_vrectbottom_adj, 16 );
 #endif
 
+
 // left side clip
-	screenedge[0].normal[0] = (float)(-1.0 / (xOrigin*r_refdef.horizontalFieldOfView));
+	screenedge[0].normal[0] = -1.0 / (xOrigin*r_refdef.horizontalFieldOfView);
 	screenedge[0].normal[1] = 0;
 	screenedge[0].normal[2] = 1;
 	screenedge[0].type = PLANE_ANYZ;
-
+	
 // right side clip
 	screenedge[1].normal[0] =
-			(float)(1.0 / ((1.0-xOrigin)*r_refdef.horizontalFieldOfView));
+			1.0 / ((1.0-xOrigin)*r_refdef.horizontalFieldOfView);
 	screenedge[1].normal[1] = 0;
 	screenedge[1].normal[2] = 1;
 	screenedge[1].type = PLANE_ANYZ;
-
+	
 // top side clip
 	screenedge[2].normal[0] = 0;
-	screenedge[2].normal[1] = (float)(-1.0 / (yOrigin*verticalFieldOfView));
+	screenedge[2].normal[1] = -1.0 / (yOrigin*verticalFieldOfView);
 	screenedge[2].normal[2] = 1;
 	screenedge[2].type = PLANE_ANYZ;
-
+	
 // bottom side clip
 	screenedge[3].normal[0] = 0;
-	screenedge[3].normal[1] = (float)(1.0 / ((1.0-yOrigin)*verticalFieldOfView));
-	screenedge[3].normal[2] = 1;
+	screenedge[3].normal[1] = 1.0 / ((1.0-yOrigin)*verticalFieldOfView);
+	screenedge[3].normal[2] = 1;	
 	screenedge[3].type = PLANE_ANYZ;
-
+	
 	for (i=0 ; i<4 ; i++)
 		VectorNormalize (screenedge[i].normal);
 
-	res_scale = (float)(sqrt ((double)(r_refdef.vrect.width * r_refdef.vrect.height) /
+	res_scale = sqrt ((double)(r_refdef.vrect.width * r_refdef.vrect.height) /
 			          (320.0 * 152.0)) *
-			(2.0 / r_refdef.horizontalFieldOfView));
+			(2.0 / r_refdef.horizontalFieldOfView);
 	r_aliastransition = r_aliastransbase.value * res_scale;
 	r_resfudge = r_aliastransadj.value * res_scale;
 
@@ -527,150 +507,8 @@ void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
 
 	D_ViewChanged ();
 }
-#else
-//JB: Optimization
-void R_ViewChanged (vrect_t *pvrect, int lineadj, float aspect)
-{
-	int		i;
-	float	res_scale;
 
-	r_viewchanged = true;
 
-	R_SetVrect (pvrect, &r_refdef.vrect, lineadj);
-
-	r_refdef.horizontalFieldOfView = (float)(2.0 * tan (r_refdef.fov_x/360*M_PI));
-	r_refdef.fvrectx = (float)r_refdef.vrect.x;
-	r_refdef.fvrectx_adj = (float)(r_refdef.vrect.x - 0.5);
-	r_refdef.vrect_x_adj_shift20 = (r_refdef.vrect.x<<20) + (1<<19) - 1;
-	r_refdef.fvrecty = (float)r_refdef.vrect.y;
-	r_refdef.fvrecty_adj = (float)(r_refdef.vrect.y - 0.5);
-	r_refdef.vrectright = r_refdef.vrect.x + r_refdef.vrect.width;
-	r_refdef.vrectright_adj_shift20 = (r_refdef.vrectright<<20) + (1<<19) - 1;
-	r_refdef.fvrectright = (float)r_refdef.vrectright;
-	r_refdef.fvrectright_adj = (float)(r_refdef.vrectright - 0.5);
-	r_refdef.vrectrightedge = (float)(r_refdef.vrectright - 0.99);
-	r_refdef.vrectbottom = r_refdef.vrect.y + r_refdef.vrect.height;
-	r_refdef.fvrectbottom = (float)r_refdef.vrectbottom;
-	r_refdef.fvrectbottom_adj = (float)(r_refdef.vrectbottom - 0.5);
-
-	r_refdef.aliasvrect.x = (int)(r_refdef.vrect.x * r_aliasuvscale);
-	r_refdef.aliasvrect.y = (int)(r_refdef.vrect.y * r_aliasuvscale);
-	r_refdef.aliasvrect.width = (int)(r_refdef.vrect.width * r_aliasuvscale);
-	r_refdef.aliasvrect.height = (int)(r_refdef.vrect.height * r_aliasuvscale);
-	r_refdef.aliasvrectright = r_refdef.aliasvrect.x +
-			r_refdef.aliasvrect.width;
-	r_refdef.aliasvrectbottom = r_refdef.aliasvrect.y +
-			r_refdef.aliasvrect.height;
-
-	pixelAspect = aspect;
-	xOrigin = r_refdef.xOrigin;
-	yOrigin = r_refdef.yOrigin;
-
-	screenAspect = r_refdef.vrect.width*pixelAspect /
-			r_refdef.vrect.height;
-// 320*200 1.0 pixelAspect = 1.6 screenAspect
-// 320*240 1.0 pixelAspect = 1.3333 screenAspect
-// proper 320*200 pixelAspect = 0.8333333
-
-	verticalFieldOfView = r_refdef.horizontalFieldOfView / screenAspect;
-
-// values for perspective projection
-// if math were exact, the values would range from 0.5 to to range+0.5
-// hopefully they wll be in the 0.000001 to range+.999999 and truncate
-// the polygon rasterization will never render in the first row or column
-// but will definately render in the [range] row and column, so adjust the
-// buffer origin to get an exact edge to edge fill
-	xcenter = (float)(((float)r_refdef.vrect.width * XCENTERING) +
-			r_refdef.vrect.x - 0.5);
-	fpxcenter = (int)(64.0f * xcenter);
-	aliasxcenter = xcenter * r_aliasuvscale;
-	ycenter = (float)(((float)r_refdef.vrect.height * YCENTERING) +
-			r_refdef.vrect.y - 0.5);
-	fpycenter = (int)(64.0f * ycenter);
-	aliasycenter = ycenter * r_aliasuvscale;
-
-	xscale = r_refdef.vrect.width / r_refdef.horizontalFieldOfView;
-	aliasxscale = xscale * r_aliasuvscale;
-	xscaleinv = (float)(1.0 / xscale);
-	yscale = xscale * pixelAspect;
-	fpxscale = (int)(1024.0f * xscale);
-	fpyscale = (int)(1024.0f * yscale);
-	aliasyscale = yscale * r_aliasuvscale;
-	yscaleinv = (float)(1.0 / yscale);
-	xscaleshrink = (r_refdef.vrect.width-6)/r_refdef.horizontalFieldOfView;
-	yscaleshrink = xscaleshrink*pixelAspect;
-
-#ifdef USE_PQ_OPT1
-	xscale_fxp=(int)(xscale*8388608.0);
-	yscale_fxp=(int)(yscale*8388608.0);
-	xcenter_fxp=(int)(xcenter*8388608.0);
-	ycenter_fxp=(int)(ycenter*8388608.0);
-	r_refdef_fvrectx_adj_fxp=(int)(r_refdef.fvrectx_adj*8388608.0);
-	r_refdef_fvrectright_adj_fxp=(int)(r_refdef.fvrectright_adj*8388608.0);
-	r_refdef_fvrecty_adj_fxp=(int)(r_refdef.fvrecty_adj*8388608.0);
-	r_refdef_fvrectbottom_adj_fxp=(int)(r_refdef.fvrectbottom_adj*8388608.0);
-#endif
-
-// left side clip
-	screenedge[0].normal[0] = (float)(-1.0 / (xOrigin*r_refdef.horizontalFieldOfView));
-	screenedge[0].normal[1] = 0;
-	screenedge[0].normal[2] = 1;
-	screenedge[0].type = PLANE_ANYZ;
-
-// right side clip
-	screenedge[1].normal[0] =
-			(float)(1.0 / ((1.0-xOrigin)*r_refdef.horizontalFieldOfView));
-	screenedge[1].normal[1] = 0;
-	screenedge[1].normal[2] = 1;
-	screenedge[1].type = PLANE_ANYZ;
-
-// top side clip
-	screenedge[2].normal[0] = 0;
-	screenedge[2].normal[1] = (float)(-1.0 / (yOrigin*verticalFieldOfView));
-	screenedge[2].normal[2] = 1;
-	screenedge[2].type = PLANE_ANYZ;
-
-// bottom side clip
-	screenedge[3].normal[0] = 0;
-	screenedge[3].normal[1] = (float)(1.0 / ((1.0-yOrigin)*verticalFieldOfView));
-	screenedge[3].normal[2] = 1;
-	screenedge[3].type = PLANE_ANYZ;
-
-	for (i=0 ; i<4 ; i++)
-		VectorNormalize (screenedge[i].normal);
-
-	res_scale = (float)(sqrt ((double)(r_refdef.vrect.width * r_refdef.vrect.height) /
-			          (320.0 * 152.0)) *
-			(2.0 / r_refdef.horizontalFieldOfView));
-	r_aliastransition = r_aliastransbase.value * res_scale;
-	r_resfudge = r_aliastransadj.value * res_scale;
-
-	if (scr_fov.value <= 90.0)
-		r_fov_greater_than_90 = false;
-	else
-		r_fov_greater_than_90 = true;
-
-// TODO: collect 386-specific code in one place
-#if	id386
-	if (r_pixbytes == 1)
-	{
-		Sys_MakeCodeWriteable ((long)R_Surf8Start,
-						     (long)R_Surf8End - (long)R_Surf8Start);
-		colormap = vid.colormap;
-		R_Surf8Patch ();
-	}
-	else
-	{
-		Sys_MakeCodeWriteable ((long)R_Surf16Start,
-						     (long)R_Surf16End - (long)R_Surf16Start);
-		colormap = vid.colormap16;
-		R_Surf16Patch ();
-	}
-#endif	// id386
-
-	D_ViewChanged ();
-}
-#endif
 /*
 ===============
 R_MarkLeaves
@@ -684,12 +522,12 @@ void R_MarkLeaves (void)
 
 	if (r_oldviewleaf == r_viewleaf)
 		return;
-
+	
 	r_visframecount++;
 	r_oldviewleaf = r_viewleaf;
 
 	vis = Mod_LeafPVS (r_viewleaf, cl.worldmodel);
-
+		
 	for (i=0 ; i<cl.worldmodel->numleafs ; i++)
 	{
 		if (vis[i>>3] & (1<<(i&7)))
@@ -706,12 +544,13 @@ void R_MarkLeaves (void)
 	}
 }
 
+
 /*
 =============
 R_DrawEntitiesOnList
 =============
 */
-void R_DrawEntitiesOnList (void)
+void R_DrawEntitiesOnList_(void)
 {
 	int			i, j;
 	int			lnum;
@@ -726,7 +565,6 @@ void R_DrawEntitiesOnList (void)
 
 	for (i=0 ; i<cl_numvisedicts ; i++)
 	{
-
 		currententity = cl_visedicts[i];
 
 		if (currententity == &cl_entities[cl.viewentity])
@@ -746,12 +584,10 @@ void R_DrawEntitiesOnList (void)
 
 		// see if the bounding box lets us trivially reject, also sets
 		// trivial accept status
-
 			if (R_AliasCheckBBox ())
 			{
-
 				j = R_LightPoint (currententity->origin);
-
+	
 				lighting.ambientlight = j;
 				lighting.shadelight = j;
 
@@ -765,13 +601,12 @@ void R_DrawEntitiesOnList (void)
 										cl_dlights[lnum].origin,
 										dist);
 						add = cl_dlights[lnum].radius - Length(dist);
-
+	
 						if (add > 0)
-							lighting.ambientlight += (int)add;
+							lighting.ambientlight += add;
 					}
 				}
-
-
+	
 			// clamp lighting so it doesn't overbright as much
 				if (lighting.ambientlight > 128)
 					lighting.ambientlight = 128;
@@ -789,12 +624,22 @@ void R_DrawEntitiesOnList (void)
 	}
 }
 
+void R_DrawEntitiesOnList(void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_DrawEntitiesOnList_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_DrawEntitiesOnList_();
+#endif
+
+}
+
 /*
 =============
 R_DrawViewModel
 =============
 */
-void R_DrawViewModel (void)
+void R_DrawViewModel_ (void)
 {
 // FIXME: remove and do real lighting
 	float		lightvec[3] = {-1, 0, 0};
@@ -803,7 +648,7 @@ void R_DrawViewModel (void)
 	vec3_t		dist;
 	float		add;
 	dlight_t	*dl;
-
+	
 	if (!r_drawviewmodel.value || r_fov_greater_than_90)
 		return;
 
@@ -830,7 +675,7 @@ void R_DrawViewModel (void)
 	r_viewlighting.ambientlight = j;
 	r_viewlighting.shadelight = j;
 
-// add dynamic lights
+// add dynamic lights		
 	for (lnum=0 ; lnum<MAX_DLIGHTS ; lnum++)
 	{
 		dl = &cl_dlights[lnum];
@@ -844,7 +689,7 @@ void R_DrawViewModel (void)
 		VectorSubtract (currententity->origin, dl->origin, dist);
 		add = dl->radius - Length(dist);
 		if (add > 0)
-			r_viewlighting.ambientlight += (int)add;
+			r_viewlighting.ambientlight += add;
 	}
 
 // clamp lighting so it doesn't overbright as much
@@ -862,6 +707,17 @@ void R_DrawViewModel (void)
 	R_AliasDrawModel (&r_viewlighting);
 }
 
+
+void R_DrawViewModel(void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_DrawViewModel_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_DrawViewModel_();
+#endif
+}
+
+
 /*
 =============
 R_BmodelCheckBBox
@@ -871,7 +727,7 @@ int R_BmodelCheckBBox (model_t *clmodel, float *minmaxs)
 {
 	int			i, *pindex, clipflags;
 	vec3_t		acceptpt, rejectpt;
-	double		d;
+	float		d;
 
 	clipflags = 0;
 
@@ -903,7 +759,7 @@ int R_BmodelCheckBBox (model_t *clmodel, float *minmaxs)
 			rejectpt[0] = minmaxs[pindex[0]];
 			rejectpt[1] = minmaxs[pindex[1]];
 			rejectpt[2] = minmaxs[pindex[2]];
-
+			
 			d = DotProduct (rejectpt, view_clipplanes[i].normal);
 			d -= view_clipplanes[i].dist;
 
@@ -924,6 +780,7 @@ int R_BmodelCheckBBox (model_t *clmodel, float *minmaxs)
 
 	return clipflags;
 }
+
 
 /*
 =============
@@ -972,41 +829,11 @@ void R_DrawBEntitiesOnList (void)
 				VectorSubtract (r_origin, r_entorigin, modelorg);
 			// FIXME: is this needed?
 				VectorCopy (modelorg, r_worldmodelorg);
-
+		
 				r_pcurrentvertbase = clmodel->vertexes;
-
-#ifdef USE_PQ_OPT2
-				r_pcurrentvertbase_fxp = clmodel->vertexes_fxp;
-#endif
+		
 			// FIXME: stop transforming twice
 				R_RotateBmodel ();
-
-#ifdef USE_PQ_OPT1
-				modelorg_fxp[0]=(int)(modelorg[0]*524288.0);
-				modelorg_fxp[1]=(int)(modelorg[1]*524288.0);
-				modelorg_fxp[2]=(int)(modelorg[2]*524288.0);
-
-				vright_fxp[0]=(int)(256.0/vright[0]);
-				if (!vright_fxp[0]) vright_fxp[0]=0x7fffffff;
-				vright_fxp[1]=(int)(256.0/vright[1]);
-				if (!vright_fxp[1]) vright_fxp[1]=0x7fffffff;
-				vright_fxp[2]=(int)(256.0/vright[2]);
-				if (!vright_fxp[2]) vright_fxp[2]=0x7fffffff;
-
-				vpn_fxp[0]=(int)(256.0/vpn[0]);
-				if (!vpn_fxp[0]) vpn_fxp[0]=0x7fffffff;
-				vpn_fxp[1]=(int)(256.0/vpn[1]);
-				if (!vpn_fxp[1]) vpn_fxp[1]=0x7fffffff;
-				vpn_fxp[2]=(int)(256.0/vpn[2]);
-				if (!vpn_fxp[2]) vpn_fxp[2]=0x7fffffff;
-
-				vup_fxp[0]=(int)(256.0/vup[0]);
-				if (!vup_fxp[0]) vup_fxp[0]=0x7fffffff;
-				vup_fxp[1]=(int)(256.0/vup[1]);
-				if (!vup_fxp[1]) vup_fxp[1]=0x7fffffff;
-				vup_fxp[2]=(int)(256.0/vup[2]);
-				if (!vup_fxp[2]) vup_fxp[2]=0x7fffffff;
-#endif
 
 			// calculate dynamic lighting for bmodel if it's not an
 			// instanced model
@@ -1047,7 +874,7 @@ void R_DrawBEntitiesOnList (void)
 					if (r_pefragtopnode)
 					{
 						currententity->topnode = r_pefragtopnode;
-
+	
 						if (r_pefragtopnode->contents >= 0)
 						{
 						// not a leaf; has to be clipped to the world BSP
@@ -1061,12 +888,12 @@ void R_DrawBEntitiesOnList (void)
 						// drawing order
 							R_DrawSubmodelPolygons (clmodel, clipflags);
 						}
-
+	
 						currententity->topnode = NULL;
 					}
 				}
 
-			// put back world rotation and frustum clipping
+			// put back world rotation and frustum clipping		
 			// FIXME: R_RotateBmodel should just work off base_vxx
 				VectorCopy (base_vpn, vpn);
 				VectorCopy (base_vup, vup);
@@ -1084,12 +911,7 @@ void R_DrawBEntitiesOnList (void)
 	}
 
 	insubmodel = false;
-
 }
-
-
-//extern edge_t	*ledges;
-//extern surf_t	*lsurfs;
 
 
 /*
@@ -1097,12 +919,12 @@ void R_DrawBEntitiesOnList (void)
 R_EdgeDrawing
 ================
 */
-void R_EdgeDrawing (void)
+void R_EdgeDrawing_ (void)
 {
-  edge_t	ledges[NUMSTACKEDGES + 	((CACHE_SIZE - 1) / sizeof(edge_t)) + 1];
-  surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1];
-  //  Cache_Report();
-
+	edge_t	ledges[NUMSTACKEDGES +
+				((CACHE_SIZE - 1) / sizeof(edge_t)) + 1];
+	surf_t	lsurfs[NUMSTACKSURFACES +
+				((CACHE_SIZE - 1) / sizeof(surf_t)) + 1];
 
 	if (auxedges)
 	{
@@ -1125,22 +947,17 @@ void R_EdgeDrawing (void)
 		R_SurfacePatch ();
 	}
 
-	//	Cache_Report();
-
 	R_BeginEdgeFrame ();
 
 	if (r_dspeeds.value)
 	{
-		rw_time1 = (float)Sys_FloatTime ();
+		rw_time1 = Sys_FloatTime ();
 	}
-
-	//	Cache_Report();
 
 	R_RenderWorld ();
 
-	if (r_drawculledpolys){
+	if (r_drawculledpolys)
 		R_ScanEdges ();
-	}
 
 // only the world can be drawn back to front with no z reads or compares, just
 // z writes, so have the driver turn z compares on now
@@ -1148,17 +965,15 @@ void R_EdgeDrawing (void)
 
 	if (r_dspeeds.value)
 	{
-		rw_time2 = (float)Sys_FloatTime ();
+		rw_time2 = Sys_FloatTime ();
 		db_time1 = rw_time2;
 	}
-
-	//	Cache_Report();
 
 	R_DrawBEntitiesOnList ();
 
 	if (r_dspeeds.value)
 	{
-		db_time2 = (float)Sys_FloatTime ();
+		db_time2 = Sys_FloatTime ();
 		se_time1 = db_time2;
 	}
 
@@ -1168,21 +983,21 @@ void R_EdgeDrawing (void)
 		S_ExtraUpdate ();	// don't let sound get messed up if going slow
 		VID_LockBuffer ();
 	}
-
-	//	Cache_Report();
-
 	
-	if (!(r_drawpolys | r_drawculledpolys)) {
-	  R_ScanEdges ();
-	}
-	  
-	/*	free(ledges);
-	free(lsurfs);
-	*/
-	
+	if (!(r_drawpolys | r_drawculledpolys))
+		R_ScanEdges ();
 }
 
-extern int r_numparticles, r_allocatedparticles;
+
+void R_EdgeDrawing (void)
+{
+#ifdef FORNSPIRE
+	nspire_stack_redirect( R_EdgeDrawing_, ( ( unsigned char * )p_nspire_stack_redirect ) + 0x60000 );
+#else
+	R_EdgeDrawing_();
+#endif
+}
+
 /*
 ================
 R_RenderView
@@ -1191,46 +1006,46 @@ r_refdef must be set before the first call
 ================
 */
 
-
 void R_RenderView_ (void)
 {
-byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
-	//Dan:
-  //  byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
-
-	//Dan East: Here we see if the new r_maxparticles var has changed,
-	//if so we change the max value. I guess this is as good a place
-	//as any to perform this check.
-	if (r_numparticles != (int)r_maxparticles.value) {
-		r_numparticles = (int)r_maxparticles.value;
-		//Check to see if we have enough particles allocated
-		if (r_numparticles>=r_allocatedparticles)
-			//We don't (they've exceeded MAX_PARTICLES or the original -particles value)
-			r_numparticles=r_allocatedparticles;
-		R_ClearParticles();
-	}
+	static byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 
 	r_warpbuffer = warpbuffer;
 
 	if (r_timegraph.value || r_speeds.value || r_dspeeds.value)
-		r_time1 = (float)Sys_FloatTime ();
+		r_time1 = Sys_FloatTime ();
+
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
 	R_SetupFrame ();
 
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 #ifdef PASSAGES
-	SetVisibilityByPassages ();
+SetVisibilityByPassages ();
 #else
 	R_MarkLeaves ();	// done here so we know if we're in water
 #endif
-
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 // make FDIV fast. This reduces timing precision after we've been running for a
 // while, so we don't do it globally.  This also sets chop mode, and we do it
 // here so that setup stuff like the refresh area calculations match what's
 // done in screen.c
-//	Sys_LowFPPrecision ();
+	Sys_LowFPPrecision ();
 
 	if (!cl_entities[0].model || !cl.worldmodel)
 		Sys_Error ("R_RenderView: NULL worldmodel");
+		
+	if (!r_dspeeds.value)
+	{
+		VID_UnlockBuffer ();
+		S_ExtraUpdate ();	// don't let sound get messed up if going slow
+		VID_LockBuffer ();
+	}
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
+#if FORNSPIRE
+	/*bkpt();*/
+#endif
+	R_EdgeDrawing ();
 
 	if (!r_dspeeds.value)
 	{
@@ -1238,57 +1053,48 @@ byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 		S_ExtraUpdate ();	// don't let sound get messed up if going slow
 		VID_LockBuffer ();
 	}
-
-	R_EdgeDrawing ();		      
-
-	if (!r_dspeeds.value)
-	{
-		VID_UnlockBuffer ();
-		S_ExtraUpdate ();	// don't let sound get messed up if going slow
-		VID_LockBuffer ();
-	}
-
+	
 	if (r_dspeeds.value)
 	{
-		se_time2 = (float)Sys_FloatTime ();
+		se_time2 = Sys_FloatTime ();
 		de_time1 = se_time2;
 	}
-
-	 R_DrawEntitiesOnList ();
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
+	R_DrawEntitiesOnList ();
 
 	if (r_dspeeds.value)
 	{
-		de_time2 = (float)Sys_FloatTime ();
+		de_time2 = Sys_FloatTime ();
 		dv_time1 = de_time2;
 	}
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
-	 R_DrawViewModel ();
+	R_DrawViewModel ();
 
 	if (r_dspeeds.value)
 	{
-		dv_time2 = (float)Sys_FloatTime ();
-		dp_time1 = (float)Sys_FloatTime ();
+		dv_time2 = Sys_FloatTime ();
+		dp_time1 = Sys_FloatTime ();
 	}
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
-	 R_DrawParticles ();
+	R_DrawParticles ();
 
 	if (r_dspeeds.value)
-		dp_time2 = (float)Sys_FloatTime ();
-
+		dp_time2 = Sys_FloatTime ();
+	/*printf("R_RenderView_ %s:%d\n", __FILE__, __LINE__ );*/
 
 	if (r_dowarp)
-	   D_WarpScreen ();
+		D_WarpScreen ();
 
-
-	 V_SetContentsColor (r_viewleaf->contents);
-
+	V_SetContentsColor (r_viewleaf->contents);
 
 	if (r_timegraph.value)
 		R_TimeGraph ();
 
 	if (r_aliasstats.value)
 		R_PrintAliasStats ();
-
+		
 	if (r_speeds.value)
 		R_PrintTimes ();
 
@@ -1301,16 +1107,18 @@ byte	warpbuffer[WARP_WIDTH * WARP_HEIGHT];
 	if (r_reportedgeout.value && r_outofedges)
 		Con_Printf ("Short roughly %d edges\n", r_outofedges * 2 / 3);
 
+	/*Con_Printf("Timers: %d %d\n", (int)(f64_testtime1 * 1000), (int)(f64_testtime2 * 1000) );*/
+
 // back to high floating-point precision
-//	Sys_HighFPPrecision ();
-
+	Sys_HighFPPrecision ();
 }
-
 
 void R_RenderView (void)
 {
 	int		dummy;
 	int		delta;
+	
+	/*printf("R_RenderView %s:%d\n", __FILE__, __LINE__ );*/
 
 	delta = (byte *)&dummy - r_stack_start;
 	if (delta < -10000 || delta > 10000)
@@ -1325,9 +1133,10 @@ void R_RenderView (void)
 	if ( (long)(&r_warpbuffer) & 3 )
 		Sys_Error ("Globals are missaligned");
 
+	/*printf("R_RenderView %s:%d\n", __FILE__, __LINE__ );*/
+
 	R_RenderView_ ();
 }
-
 
 /*
 ================
@@ -1337,11 +1146,11 @@ R_InitTurb
 void R_InitTurb (void)
 {
 	int		i;
-
+	
 	for (i=0 ; i<(SIN_BUFFER_SIZE) ; i++)
 	{
-		sintable[i] = (int)(AMP + sin(i*3.14159*2/CYCLE)*AMP);
-		intsintable[i] = (int)(AMP2 + sin(i*3.14159*2/CYCLE)*AMP2);	// AMP2, not 20
+		sintable[i] = AMP + sin(i*3.14159*2/CYCLE)*AMP;
+		intsintable[i] = AMP2 + sin(i*3.14159*2/CYCLE)*AMP2;	// AMP2, not 20
 	}
 }
 
