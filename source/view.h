@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -17,19 +17,27 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+
+#ifndef VIEW_H
+#define VIEW_H
+
 // view.h
 
-extern	cvar_t		v_gamma;
+extern cvar_t v_gamma;
+extern cvar_t cl_crossx;
+extern cvar_t cl_crossy;
+extern cvar_t crosshair;
+extern cvar_t crosshaircolor;
 
-extern	byte		gammatable[256];	// palette is sent through this
-extern	byte		ramps[3][256];
+#ifdef GLQUAKE
 extern float v_blend[4];
+#endif
 
-extern cvar_t lcd_x;
+void V_Init(void);
+void V_RenderView(void);
+void V_UpdatePalette(void);
+void V_CalcBlend(void);
 
+float V_CalcRoll(vec3_t angles, vec3_t velocity);
 
-void V_Init (void);
-void V_RenderView (void);
-float V_CalcRoll (vec3_t angles, vec3_t velocity);
-void V_UpdatePalette (void);
-
+#endif /* VIEW_H */

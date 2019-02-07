@@ -1,132 +1,166 @@
 // vid_sdl.h -- sdl video driver 
 
-#include <sys/stat.h>
-#include <sys/dir.h>
-#include <unistd.h>
 #include <SDL/SDL.h>
 #include "quakedef.h"
 #include "d_local.h"
 
-#if defined(PAP_K3S)
-#define REAL_WIDTH 800
-#define REAL_HEIGHT 480
-#elif defined(ARCADE_MINI)
-#define REAL_WIDTH 480
-#define REAL_HEIGHT 272
-#else
-#define REAL_WIDTH 320
-#define REAL_HEIGHT 240
-#endif
+#include "cdaudio.h"
+#include "client.h"
+#include "common.h"
+#include "console.h"
+#include "cvar.h"
+#include "input.h"
+#include "keys.h"
+#include "mathlib.h"
+#include "quakedef.h"
+#include "sdl_common.h"
+#include "sound.h"
+#include "sys.h"
+#include "vid.h"
+#include "host.h"
+#include "port.h"
 
-viddef_t vid; // global video state
-uint16_t d_8to16table[256];
+int32_t spacing_x_res = 0;
 
-extern uint8_t main_bg[157735];
+int vid_modenum = VID_MODE_NONE;
+static cvar_t m_filter = { "m_filter", "0" };
 
-#define DISABLE_CDROM
-#define DISABLE_MOUSE
+viddef_t    vid;                // global video state
+uint16_t	d_8to16table[256];
 
-// Quake Screen...
-static SDL_Surface *hwscreen = NULL, *screen = NULL;
-uint32_t min_vid_width = REAL_WIDTH;
+int32_t	VGA_width, VGA_height, VGA_rowubytes, VGA_bufferrowubytes = 0;
+uint8_t *VGA_pagebase;
 
-uint32_t VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
-byte *VGA_pagebase;
+static SDL_Surface *screen = NULL;
 
-#ifndef DISABLE_MOUSE
 static qboolean mouse_avail;
-static float mouse_x, mouse_y;
-static int mouse_oldbuttonstate = 0;
-#endif
-
-//vars for mlook
-float start_yaw;
-float yaw_modifier=0;
+static float   mouse_x, mouse_y;
+static int32_t		mouse_oldbuttonstate = 0;
 
 // No support for option menus
 void (*vid_menudrawfn)(void) = NULL;
-void (*vid_menukeyfn)(int key) = NULL;
+void (*vid_menukeyfn)(knum_t		key) = NULL;
 
-void VID_SetPalette (unsigned char *palette) {
-    int i;
+void   VID_SetPalette (const uint8_t *palette)
+{
+    int32_t		i;
     SDL_Color colors[256];
 
-    for ( i=0; i<256; ++i ) {
+    for ( i=0; i<256; ++i )
+    {
         colors[i].r = *palette++;
         colors[i].g = *palette++;
         colors[i].b = *palette++;
     }
-    //SDL_SetPalette(screen, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 256);
     SDL_SetColors(screen, colors, 0, 256);
 }
 
-void VID_ShiftPalette (unsigned char *palette) {
+void    VID_ShiftPalette (const uint8_t *palette)
+{
     VID_SetPalette(palette);
 }
 
-void VID_Init (unsigned char *palette) {
-	int32_t pnum, chunk;
-	byte *cache;
-    int32_t cachesize;
-	int32_t quit = false;
-	int32_t option = 0;
-	int32_t handle = -1;
-	
-	// Load the SDL library
-	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) != 0)
-	{
-		Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
-	}
+void    VID_Init (const uint8_t *palette)
+{
+    int32_t		pnum, chunk;
+    uint8_t *cache;
+    int32_t		cachesize;
+    uint8_t video_bpp;
+    Uint16 video_w, video_h;
+    Uint32 flags;
 
-	if(!(hwscreen = SDL_SetVideoMode(REAL_WIDTH, REAL_HEIGHT, 16, SDL_HWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
-	{
-		Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
-	}
+    // Load the SDL library
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_CDROM) < 0)
+        Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
 
-	// initialize the mouse
-	SDL_ShowCursor(0);
+    // Set up display mode (width and height)
+    vid.width = BASEWIDTH;
+    vid.height = BASEHEIGHT;
+    vid.maxwarpwidth = WARP_WIDTH;
+    vid.maxwarpheight = WARP_HEIGHT;
 
-	vid.width = REAL_WIDTH;
-	vid.height = REAL_HEIGHT;
-	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 8, 0, 0, 0, 0);
+    // check for command-line window size
+    if ((pnum=COM_CheckParm("-winsize")))
+    {
+        if (pnum >= com_argc-2)
+            Sys_Error("VID: -winsize <width> <height>\n");
+        vid.width = Q_atoi(com_argv[pnum+1]);
+        vid.height = Q_atoi(com_argv[pnum+2]);
+        if (!vid.width || !vid.height)
+            Sys_Error("VID: Bad window width/height\n");
+    }
+    if ((pnum=COM_CheckParm("-width"))) {
+        if (pnum >= com_argc-1)
+            Sys_Error("VID: -width <width>\n");
+        vid.width = Q_atoi(com_argv[pnum+1]);
+        if (!vid.width)
+            Sys_Error("VID: Bad window width\n");
+    }
+    if ((pnum=COM_CheckParm("-height"))) {
+        if (pnum >= com_argc-1)
+            Sys_Error("VID: -height <height>\n");
+        vid.height = Q_atoi(com_argv[pnum+1]);
+        if (!vid.height)
+            Sys_Error("VID: Bad window height\n");
+    }
 
-	VID_SetPalette(palette);
-	SDL_WM_SetCaption("Quake", "quake");
+    // Set video width, height and flags
+    flags = (SDL_SWSURFACE|SDL_HWPALETTE);
 
-	// now know everything we need to know about the buffer
-	VGA_width = vid.conwidth = vid.width;
-	VGA_height = vid.conheight = vid.height;
-	vid.aspect = 1.0; 
-	vid.numpages = 1;
-	vid.colormap = host_colormap;
-	vid.fullbright = 256 - LittleLong (*((int *)vid.colormap + 2048));
-	VGA_pagebase = vid.buffer = screen->pixels;
-	VGA_rowbytes = vid.rowbytes = screen->pitch;
-	vid.conbuffer = vid.buffer;
-	vid.conrowbytes = vid.rowbytes;
-	vid.direct = 0;
+    if ( COM_CheckParm ("-fullscreen") )
+        flags |= SDL_FULLSCREEN;
+
+    if ( COM_CheckParm ("-window") ) {
+        flags &= ~SDL_FULLSCREEN;
+    }
+
+    // Initialize display 
+    if (!(screen = SDL_SetVideoMode(vid.width, vid.height, 8, flags)))
+        Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
+    VID_SetPalette(palette);
+    SDL_WM_SetCaption("sdlquake","sdlquake");
+    // now know everything we need to know about the buffer
+    VGA_width = vid.conwidth = vid.width;
+    VGA_height = vid.conheight = vid.height;
+    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.numpages = 1;
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong (*((int32_t		*)vid.colormap + 2048));
+    VGA_pagebase = vid.buffer = screen->pixels;
+    VGA_rowubytes = vid.rowbytes = screen->pitch;
+    vid.conbuffer = vid.buffer;
+    vid.conrowbytes = vid.rowbytes;
+    vid.direct = 0;
     
-	// allocate z buffer and surface cache
-	chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
-	cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
-	chunk += cachesize;
-	d_pzbuffer = Hunk_HighAllocName(chunk, "video");
+    // allocate z buffer and surface cache
+    chunk = vid.width * vid.height * sizeof (*d_pzbuffer);
+    cachesize = D_SurfaceCacheForRes (vid.width, vid.height);
+    chunk += cachesize;
+    d_pzbuffer = Hunk_HighAllocName(chunk, "video");
+    if (d_pzbuffer == NULL)
+        Sys_Error ("Not enough memory for video mode\n");
 
-	if (d_pzbuffer == NULL)
-		Sys_Error ("Not enough memory for video mode\n");
+    // initialize the cache memory 
+        cache = (uint8_t *) d_pzbuffer
+                + vid.width * vid.height * sizeof (*d_pzbuffer);
+    D_InitCaches (cache, cachesize);
 
-	// initialize the cache memory 
-	cache = (byte *) d_pzbuffer + vid.width * vid.height * sizeof (*d_pzbuffer);
-	D_InitCaches (cache, cachesize);
+    // initialize the mouse
+    SDL_ShowCursor(0);
+    
+    spacing_x_res = vid.width - 320;
+    if (spacing_x_res < 0) spacing_x_res = 0;
 }
 
-void    VID_Shutdown (void) {
+void    VID_Shutdown (void)
+{
     SDL_Quit();
 }
 
-void    VID_Update (vrect_t *rects) {
+void    VID_Update (vrect_t *rects)
+{
     SDL_Rect *sdlrects;
-    int n, i;
+    int32_t		n, i;
     vrect_t *rect;
 
     // Two-pass system, since Quake doesn't do it the SDL way...
@@ -140,19 +174,15 @@ void    VID_Update (vrect_t *rects) {
     if (!(sdlrects = (SDL_Rect *)alloca(n*sizeof(*sdlrects))))
         Sys_Error("Out of memory");
     i = 0;
-
-	for (rect = rects; rect; rect = rect->pnext) {
+    for (rect = rects; rect; rect = rect->pnext)
+    {
         sdlrects[i].x = rect->x;
         sdlrects[i].y = rect->y;
         sdlrects[i].w = rect->width;
         sdlrects[i].h = rect->height;
         ++i;
     }
-
-	SDL_Surface* p = SDL_DisplayFormat(screen);
-	SDL_BlitSurface(p, NULL, hwscreen, NULL);
-	SDL_Flip(hwscreen);
-	SDL_FreeSurface(p);
+    SDL_UpdateRects(screen, n, sdlrects);
 }
 
 /*
@@ -160,13 +190,13 @@ void    VID_Update (vrect_t *rects) {
 D_BeginDirectRect
 ================
 */
-void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height)
+void D_BeginDirectRect (int32_t		x, int32_t		y, const uint8_t *pbitmap, int32_t		width, int32_t		height)
 {
-    Uint8 *offset;
+    uint8_t *offset;
+
     if (!screen) return;
     if ( x < 0 ) x = screen->w+x-1;
-    
-    offset = (Uint8 *)screen->pixels + y*screen->pitch + x;
+    offset = (uint8_t *)screen->pixels + y*screen->pitch + x;
     while ( height-- )
     {
         memcpy(offset, pbitmap, width);
@@ -181,11 +211,11 @@ void D_BeginDirectRect (int x, int y, byte *pbitmap, int width, int height)
 D_EndDirectRect
 ================
 */
-void D_EndDirectRect (int x, int y, int width, int height)
+void D_EndDirectRect (int32_t		x, int32_t		y, int32_t		width, int32_t		height)
 {
     if (!screen) return;
     if (x < 0) x = screen->w+x-1;
-    //SDL_UpdateRect(screen, x, y, width, height);
+    SDL_UpdateRect(screen, x, y, width, height);
 }
 
 
@@ -198,207 +228,474 @@ Sys_SendKeyEvents
 void Sys_SendKeyEvents(void)
 {
     SDL_Event event;
-    int sym, state;
-    int modstate;
+    int keycode;
+    int keystate, button, keynum;
 
     while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
-                sym = event.key.keysym.sym;
-                state = event.key.state;
-                modstate = SDL_GetModState();
-                switch(sym)
-                {
-                   case SDLK_DELETE: sym = K_DEL; break;
-                   case SDLK_BACKSPACE: sym = K_BACKSPACE; break;
-                   case SDLK_F1: sym = K_F1; break;
-                   case SDLK_F2: sym = K_F2; break;
-                   case SDLK_F3: sym = K_F3; break;
-                   case SDLK_F4: sym = K_F4; break;
-                   case SDLK_F5: sym = K_F5; break;
-                   case SDLK_F6: sym = K_F6; break;
-                   case SDLK_F7: sym = K_F7; break;
-                   case SDLK_F8: sym = K_F8; break;
-                   case SDLK_F9: sym = K_F9; break;
-                   case SDLK_F10: sym = K_F10; break;
-                   case SDLK_F11: sym = K_F11; break;
-                   case SDLK_F12: sym = K_F12; break;
-                   case SDLK_BREAK:
-                   case SDLK_PAUSE: sym = K_PAUSE; break;
-                   case SDLK_UP: sym = K_UPARROW; break;
-                   case SDLK_DOWN: sym = K_DOWNARROW; break;
-                   case SDLK_RIGHT: sym = K_RIGHTARROW; break;
-                   case SDLK_LEFT: sym = K_LEFTARROW; break;
-                   case SDLK_INSERT: sym = K_INS; break;
-                   case SDLK_HOME: sym = K_HOME; break;
-                   case SDLK_END: sym = K_END; break;
-                   case SDLK_PAGEUP: sym = K_PGUP; break;
-                   case SDLK_PAGEDOWN: sym = K_PGDN; break;
-                   case SDLK_RSHIFT:
-                   case SDLK_LSHIFT: sym = K_SHIFT; break;
-                   case SDLK_RCTRL:
-                   case SDLK_LCTRL: sym = K_CTRL; break;
-                   case SDLK_RALT:
-                   case SDLK_LALT: sym = K_ALT; break;
-                   case SDLK_KP0: 
-                       if(modstate & KMOD_NUM) sym = K_INS; 
-                       else sym = SDLK_0;
-                       break;
-                   case SDLK_KP1:
-                       if(modstate & KMOD_NUM) sym = K_END;
-                       else sym = SDLK_1;
-                       break;
-                   case SDLK_KP2:
-                       if(modstate & KMOD_NUM) sym = K_DOWNARROW;
-                       else sym = SDLK_2;
-                       break;
-                   case SDLK_KP3:
-                       if(modstate & KMOD_NUM) sym = K_PGDN;
-                       else sym = SDLK_3;
-                       break;
-                   case SDLK_KP4:
-                       if(modstate & KMOD_NUM) sym = K_LEFTARROW;
-                       else sym = SDLK_4;
-                       break;
-                   case SDLK_KP5: sym = SDLK_5; break;
-                   case SDLK_KP6:
-                       if(modstate & KMOD_NUM) sym = K_RIGHTARROW;
-                       else sym = SDLK_6;
-                       break;
-                   case SDLK_KP7:
-                       if(modstate & KMOD_NUM) sym = K_HOME;
-                       else sym = SDLK_7;
-                       break;
-                   case SDLK_KP8:
-                       if(modstate & KMOD_NUM) sym = K_UPARROW;
-                       else sym = SDLK_8;
-                       break;
-                   case SDLK_KP9:
-                       if(modstate & KMOD_NUM) sym = K_PGUP;
-                       else sym = SDLK_9;
-                       break;
-                   case SDLK_KP_PERIOD:
-                       if(modstate & KMOD_NUM) sym = K_DEL;
-                       else sym = SDLK_PERIOD;
-                       break;
-                   case SDLK_KP_DIVIDE: sym = SDLK_SLASH; break;
-                   case SDLK_KP_MULTIPLY: sym = SDLK_ASTERISK; break;
-                   case SDLK_KP_MINUS: sym = SDLK_MINUS; break;
-                   case SDLK_KP_PLUS: sym = SDLK_PLUS; break;
-                   case SDLK_KP_ENTER: sym = SDLK_RETURN; break;
-                   case SDLK_KP_EQUALS: sym = SDLK_EQUALS; break;
-                }
-                // If we're not directly handled and still above 255
-                // just force it to 0
-                if(sym > 255) sym = 0;
-                Key_Event(sym, state);
-                break;
+	switch (event.type) 
+	{
+	case SDL_KEYDOWN:
+	case SDL_KEYUP:
+	    keycode = event.key.keysym.sym;
+	    keystate = event.key.state;
+	    switch (keycode) {
+	    case SDLK_UNKNOWN:
+		keynum = K_UNKNOWN;
+		break;
+	    case SDLK_BACKSPACE:
+		keynum = K_BACKSPACE;
+		break;
+	    case SDLK_TAB:
+		keynum = K_TAB;
+		break;
+	    case SDLK_CLEAR:
+		keynum = K_CLEAR;
+		break;
+	    case SDLK_RETURN:
+		keynum = K_ENTER;
+		break;
+	    case SDLK_PAUSE:
+		keynum = K_PAUSE;
+		break;
+	    case SDLK_ESCAPE:
+		keynum = K_ESCAPE;
+		break;
+	    case SDLK_SPACE:
+		keynum = K_SPACE;
+		break;
+	    case SDLK_EXCLAIM:
+		keynum = K_EXCLAIM;
+		break;
+	    case SDLK_QUOTEDBL:
+		keynum = K_QUOTEDBL;
+		break;
+	    case SDLK_HASH:
+		keynum = K_HASH;
+		break;
+	    case SDLK_DOLLAR:
+		keynum = K_DOLLAR;
+		break;
+	    case SDLK_AMPERSAND:
+		keynum = K_AMPERSAND;
+		break;
+	    case SDLK_QUOTE:
+		keynum = K_QUOTE;
+		break;
+	    case SDLK_LEFTPAREN:
+		keynum = K_LEFTPAREN;
+		break;
+	    case SDLK_RIGHTPAREN:
+		keynum = K_RIGHTPAREN;
+		break;
+	    case SDLK_ASTERISK:
+		keynum = K_ASTERISK;
+		break;
+	    case SDLK_PLUS:
+		keynum = K_PLUS;
+		break;
+	    case SDLK_COMMA:
+		keynum = K_COMMA;
+		break;
+	    case SDLK_MINUS:
+		keynum = K_MINUS;
+		break;
+	    case SDLK_PERIOD:
+		keynum = K_PERIOD;
+		break;
+	    case SDLK_SLASH:
+		keynum = K_SLASH;
+		break;
+	    case SDLK_0:
+		keynum = K_0;
+		break;
+	    case SDLK_1:
+		keynum = K_1;
+		break;
+	    case SDLK_2:
+		keynum = K_2;
+		break;
+	    case SDLK_3:
+		keynum = K_3;
+		break;
+	    case SDLK_4:
+		keynum = K_4;
+		break;
+	    case SDLK_5:
+		keynum = K_5;
+		break;
+	    case SDLK_6:
+		keynum = K_6;
+		break;
+	    case SDLK_7:
+		keynum = K_7;
+		break;
+	    case SDLK_8:
+		keynum = K_8;
+		break;
+	    case SDLK_9:
+		keynum = K_9;
+		break;
+	    case SDLK_COLON:
+		keynum = K_COLON;
+		break;
+	    case SDLK_SEMICOLON:
+		keynum = K_SEMICOLON;
+		break;
+	    case SDLK_LESS:
+		keynum = K_LESS;
+		break;
+	    case SDLK_EQUALS:
+		keynum = K_EQUALS;
+		break;
+	    case SDLK_GREATER:
+		keynum = K_GREATER;
+		break;
+	    case SDLK_QUESTION:
+		keynum = K_QUESTION;
+		break;
+	    case SDLK_AT:
+		keynum = K_AT;
+		break;
+	    case SDLK_LEFTBRACKET:
+		keynum = K_LEFTBRACKET;
+		break;
+	    case SDLK_BACKSLASH:
+		keynum = K_BACKSLASH;
+		break;
+	    case SDLK_RIGHTBRACKET:
+		keynum = K_RIGHTBRACKET;
+		break;
+	    case SDLK_CARET:
+		keynum = K_CARET;
+		break;
+	    case SDLK_UNDERSCORE:
+		keynum = K_UNDERSCORE;
+		break;
+	    case SDLK_BACKQUOTE:
+		keynum = K_BACKQUOTE;
+		break;
+	    case SDLK_a:
+		keynum = K_a;
+		break;
+	    case SDLK_b:
+		keynum = K_b;
+		break;
+	    case SDLK_c:
+		keynum = K_c;
+		break;
+	    case SDLK_d:
+		keynum = K_d;
+		break;
+	    case SDLK_e:
+		keynum = K_e;
+		break;
+	    case SDLK_f:
+		keynum = K_f;
+		break;
+	    case SDLK_g:
+		keynum = K_g;
+		break;
+	    case SDLK_h:
+		keynum = K_h;
+		break;
+	    case SDLK_i:
+		keynum = K_i;
+		break;
+	    case SDLK_j:
+		keynum = K_j;
+		break;
+	    case SDLK_k:
+		keynum = K_k;
+		break;
+	    case SDLK_l:
+		keynum = K_l;
+		break;
+	    case SDLK_m:
+		keynum = K_m;
+		break;
+	    case SDLK_n:
+		keynum = K_n;
+		break;
+	    case SDLK_o:
+		keynum = K_o;
+		break;
+	    case SDLK_p:
+		keynum = K_p;
+		break;
+	    case SDLK_q:
+		keynum = K_q;
+		break;
+	    case SDLK_r:
+		keynum = K_r;
+		break;
+	    case SDLK_s:
+		keynum = K_s;
+		break;
+	    case SDLK_t:
+		keynum = K_t;
+		break;
+	    case SDLK_u:
+		keynum = K_u;
+		break;
+	    case SDLK_v:
+		keynum = K_v;
+		break;
+	    case SDLK_w:
+		keynum = K_w;
+		break;
+	    case SDLK_x:
+		keynum = K_x;
+		break;
+	    case SDLK_y:
+		keynum = K_y;
+		break;
+	    case SDLK_z:
+		keynum = K_z;
+		break;
+	    case SDLK_DELETE:
+		keynum = K_DEL;
+		break;
+	    case SDLK_KP0:
+		keynum = K_KP0;
+		break;
+	    case SDLK_KP1:
+		keynum = K_KP1;
+		break;
+	    case SDLK_KP2:
+		keynum = K_KP2;
+		break;
+	    case SDLK_KP3:
+		keynum = K_KP3;
+		break;
+	    case SDLK_KP4:
+		keynum = K_KP4;
+		break;
+	    case SDLK_KP5:
+		keynum = K_KP5;
+		break;
+	    case SDLK_KP6:
+		keynum = K_KP6;
+		break;
+	    case SDLK_KP7:
+		keynum = K_KP7;
+		break;
+	    case SDLK_KP8:
+		keynum = K_KP8;
+		break;
+	    case SDLK_KP9:
+		keynum = K_KP9;
+		break;
+	    case SDLK_KP_PERIOD:
+		keynum = K_KP_PERIOD;
+		break;
+	    case SDLK_KP_DIVIDE:
+		keynum = K_KP_DIVIDE;
+		break;
+	    case SDLK_KP_MULTIPLY:
+		keynum = K_KP_MULTIPLY;
+		break;
+	    case SDLK_KP_MINUS:
+		keynum = K_KP_MINUS;
+		break;
+	    case SDLK_KP_PLUS:
+		keynum = K_KP_PLUS;
+		break;
+	    case SDLK_KP_ENTER:
+		keynum = K_KP_ENTER;
+		break;
+	    case SDLK_KP_EQUALS:
+		keynum = K_KP_EQUALS;
+		break;
+	    case SDLK_UP:
+		keynum = K_UPARROW;
+		break;
+	    case SDLK_DOWN:
+		keynum = K_DOWNARROW;
+		break;
+	    case SDLK_RIGHT:
+		keynum = K_RIGHTARROW;
+		break;
+	    case SDLK_LEFT:
+		keynum = K_LEFTARROW;
+		break;
+	    case SDLK_INSERT:
+		keynum = K_INS;
+		break;
+	    case SDLK_HOME:
+		keynum = K_HOME;
+		break;
+	    case SDLK_END:
+		keynum = K_END;
+		break;
+	    case SDLK_PAGEUP:
+		keynum = K_PGUP;
+		break;
+	    case SDLK_PAGEDOWN:
+		keynum = K_PGDN;
+		break;
+	    case SDLK_F1:
+		keynum = K_F1;
+		break;
+	    case SDLK_F2:
+		keynum = K_F2;
+		break;
+	    case SDLK_F3:
+		keynum = K_F3;
+		break;
+	    case SDLK_F4:
+		keynum = K_F4;
+		break;
+	    case SDLK_F5:
+		keynum = K_F5;
+		break;
+	    case SDLK_F6:
+		keynum = K_F6;
+		break;
+	    case SDLK_F7:
+		keynum = K_F7;
+		break;
+	    case SDLK_F8:
+		keynum = K_F8;
+		break;
+	    case SDLK_F9:
+		keynum = K_F9;
+		break;
+	    case SDLK_F10:
+		keynum = K_F10;
+		break;
+	    case SDLK_F11:
+		keynum = K_F11;
+		break;
+	    case SDLK_F12:
+		keynum = K_F12;
+		break;
+	    case SDLK_F13:
+		keynum = K_F13;
+		break;
+	    case SDLK_F14:
+		keynum = K_F14;
+		break;
+	    case SDLK_F15:
+		keynum = K_F15;
+		break;
+	    case SDLK_CAPSLOCK:
+		keynum = K_CAPSLOCK;
+		break;
+	    case SDLK_RSHIFT:
+		keynum = K_RSHIFT;
+		break;
+	    case SDLK_LSHIFT:
+		keynum = K_LSHIFT;
+		break;
+	    case SDLK_RCTRL:
+		keynum = K_RCTRL;
+		break;
+	    case SDLK_LCTRL:
+		keynum = K_LCTRL;
+		break;
+	    case SDLK_RALT:
+		keynum = K_RALT;
+		break;
+	    case SDLK_LALT:
+		keynum = K_LALT;
+		break;
+	    case SDLK_MODE:
+		keynum = K_MODE;
+		break;
+	    case SDLK_HELP:
+		keynum = K_HELP;
+		break;
+	    case SDLK_SYSREQ:
+		keynum = K_SYSREQ;
+		break;
+	    case SDLK_MENU:
+		keynum = K_MENU;
+		break;
+	    case SDLK_POWER:
+		keynum = K_POWER;
+		break;
+	    case SDLK_UNDO:
+		keynum = K_UNDO;
+		break;
+	    default:
+		    keynum = K_UNKNOWN;
+		break;
+	    }
+	    Key_Event(keynum, keystate);
+	    break;
 
-				#ifndef DISABLE_MOUSE
-				case SDL_MOUSEMOTION:
-                if ( (event.motion.x != (vid.width/2)) ||
-                     (event.motion.y != (vid.height/2)) ) {
-                    mouse_x = event.motion.xrel*10;
-                    mouse_y = event.motion.yrel*10;
-                    if ( (event.motion.x < ((vid.width/2)-(vid.width/4))) ||
-                         (event.motion.x > ((vid.width/2)+(vid.width/4))) ||
-                         (event.motion.y < ((vid.height/2)-(vid.height/4))) ||
-                         (event.motion.y > ((vid.height/2)+(vid.height/4))) ) {
-                        SDL_WarpMouse(vid.width/2, vid.height/2);
-                    }
-                }
-                break;
-                #endif
-
-            case SDL_QUIT:
-                CL_Disconnect ();
-                Host_ShutdownServer(false);        
-                Sys_Quit ();
-                break;
-            default:
-                break;
-        }
+	case SDL_QUIT:
+	    Sys_Quit();
+	    break;
+	default:
+	    break;
+	}
     }
 }
 
-void IN_Init (void) {
-#ifndef DISABLE_MOUSE
-	if ( COM_CheckParm ("-nomouse") )
-        return;
 
-	mouse_x = mouse_y = 0.0;
-    mouse_avail = 1;
-#endif
+void IN_Init (void)
+{
+    mouse_avail = 0;
 }
 
-void IN_Shutdown (void) {
-#ifndef DISABLE_MOUSE
-	mouse_avail = 0;
-#endif
+void IN_Shutdown (void)
+{
+    mouse_avail = 0;
 }
 
-void IN_Commands (void) {
-#ifndef DISABLE_MOUSE
-	int i;
-    int mouse_buttonstate;
-   
+void IN_Commands (void)
+{
+}
+
+void IN_Move (usercmd_t *cmd)
+{
     if (!mouse_avail)
-		return;
-   
-    i = SDL_GetMouseState(NULL, NULL);
-    /* Quake swaps the second and third buttons */
-    mouse_buttonstate = (i & ~0x06) | ((i & 0x02)<<1) | ((i & 0x04)>>1);
-    for (i=0 ; i<3 ; i++) {
-        if ( (mouse_buttonstate & (1<<i)) && !(mouse_oldbuttonstate & (1<<i)) )
-            Key_Event (K_MOUSE1 + i, true);
-
-        if ( !(mouse_buttonstate & (1<<i)) && (mouse_oldbuttonstate & (1<<i)) )
-            Key_Event (K_MOUSE1 + i, false);
-    }
-    mouse_oldbuttonstate = mouse_buttonstate;
-#endif
+        return;
 }
 
-void IN_Move (usercmd_t *cmd) {
-#ifndef DISABLE_MOUSE
-	if (!mouse_avail)
-        return;
-   
-    mouse_x *= sensitivity.value;
-    mouse_y *= sensitivity.value;
-   
-    if ( (in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1) ))
-        cmd->sidemove += m_side.value * mouse_x;
-    else
-        cl.viewangles[YAW] -= m_yaw.value * mouse_x;
-    if (in_mlook.state & 1)
-        V_StopPitchDrift ();
-   
-    if ( (in_mlook.state & 1) && !(in_strafe.state & 1)) {
-        cl.viewangles[PITCH] += m_pitch.value * mouse_y;
-        if (cl.viewangles[PITCH] > 80)
-            cl.viewangles[PITCH] = 80;
-        if (cl.viewangles[PITCH] < -70)
-            cl.viewangles[PITCH] = -70;
-    } else {
-        if ((in_strafe.state & 1) && noclip_anglehack)
-            cmd->upmove -= m_forward.value * mouse_y;
-        else
-            cmd->forwardmove -= m_forward.value * mouse_y;
-    }
-    mouse_x = mouse_y = 0.0;
-#endif
+static void windowed_mouse_f(struct cvar_s *var)
+{
+}
+
+cvar_t _windowed_mouse = { "_windowed_mouse", "0", true, false, 0, windowed_mouse_f };
+
+void
+VID_LockBuffer(void)
+{
+}
+
+void
+VID_UnlockBuffer(void)
+{
+}
+
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
+{
+	//VID_Init(palette);
 }
 
 /*
-================
-Sys_ConsoleInput
-================
+====================
+VID_CheckAdequateMem
+====================
 */
-char *Sys_ConsoleInput (void) {
-    return 0;
-}
+qboolean
+VID_CheckAdequateMem(int width, int height)
+{
+    int tbuffersize;
 
-void GpError(char *text, int hold){
+    tbuffersize = width * height * sizeof(*d_pzbuffer);
+    tbuffersize += D_SurfaceCacheForRes(width, height);
+
+    /*
+     * see if there's enough memory, allowing for the normal mode 0x13 pixel,
+     * z, and surface buffers
+     */
+    if ((host_parms.memsize - tbuffersize + SURFCACHE_SIZE_AT_320X200 +
+	 0x10000 * 3) < minimum_memory)
+	return false;
+
+    return true;
 }

@@ -1,49 +1,51 @@
-#
-# DINGUX SDK for Cygwin / Version: 0.1
-# DINGUX Makefile by Rikku2000
-#
-
-#
-#========================================(Config)
-#
-
-CHAINPREFIX=/opt/pap-toolchain
-CROSS_COMPILE=$(CHAINPREFIX)/usr/bin/mipsel-linux-
-CC = $(CROSS_COMPILE)gcc
-STRIP = $(CROSS_COMPILE)strip
-SYSROOT     := $(CHAINPREFIX)/usr/mipsel-buildroot-linux-musl/sysroot
-SDL_CFLAGS  := $(shell $(SYSROOT)/usr/bin/sdl-config --cflags)
-SDL_LIBS    := $(shell $(SYSROOT)/usr/bin/sdl-config --libs)
-
 # Software Name
-PROGRAM = sdlquake.dge
+PROGRAM = quakers97.elf
+
+# Compiler
+CC := /opt/rs97-toolchain/bin/mipsel-linux-gcc
+
+TYR_RELEASE := v0.62-pre
+TYR_GIT := $(shell git describe --dirty 2> /dev/null)
+TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
+TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
 # Linker
-CFLAGS = -O2 -fno-PIC -mno-abicalls -mips32 -fdata-sections -ffunction-sections -DPORTABLE_SAVE_FIX $(SDL_CFLAGS)
-LDFLAGS = $(SDL_LIBS) -Wl,--as-needed -Wl,--gc-sections -flto -s -lm -lc -lgcov -no-pie
+LDFLAGS = -lSDL -lz -lm -no-pie -s
+CFLAGS 	= -O2 -fprofile-use -mno-abicalls -DPAPK3S
+CFLAGS	+= -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
 
+# Include
+INCLUDES := 
 
-NET_FOLDER = local_net
+NET_FOLDER = 
 
-CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
-CFILES = 			source/$(NET_FOLDER)/host.c \
-					source/$(NET_FOLDER)/menu.c \
-					source/$(NET_FOLDER)/screen.c \
-					source/$(NET_FOLDER)/net_dgrm.c \
-					source/$(NET_FOLDER)/net_loop.c \
-					source/$(NET_FOLDER)/net_main.c \
-					source/$(NET_FOLDER)/net_vcr.c \
-					source/$(NET_FOLDER)/net_udp.c \
-					source/$(NET_FOLDER)/net_bsd.c
+CFLAGS +=  -Isource
+CFILES = 			source/host.c \
+					source/menu.c \
+					source/screen.c \
+					source/net_loop.c \
+					source/net_main.c \
+					source/net_common.c \
+					source/net_none.c \
+					source/net_dgrm.c
 
-CFILES	+=			source/pr_cmds.c \
-					source/pr_edict.c \
+CFILES	+=			source/sv_main.c \
 					source/pr_exec.c \
-					source/sv_main.c \
+					source/sdl_common.c \
+					source/vid_mode.c \
+					source/rb_tree.c \
+					source/cd_common.c \
+					source/alias_model.c \
+					source/r_model.c \
+					source/pr_cmds.c \
+					source/pr_edict.c \
 					source/cd_null.c \
-					source/vid_sdl.c \
+					source/vid_sdl_rs97.c \
+					source/shell.c \
+					source/r_sprite.c \
+					source/sprite_model.c \
 					source/snd_sdl.c \
-					source/sys_sdl.c \
+					source/sys_unix.c \
 					source/chase.c \
 					source/cl_demo.c \
 					source/cl_input.c \
@@ -66,7 +68,6 @@ CFILES	+=			source/pr_cmds.c \
 					source/d_sprite.c \
 					source/d_surf.c \
 					source/d_vars.c \
-					source/d_zpoint.c \
 					source/draw.c \
 					source/host_cmd.c \
 					source/keys.c \
@@ -84,7 +85,6 @@ CFILES	+=			source/pr_cmds.c \
 					source/r_misc.c \
 					source/r_part.c \
 					source/r_sky.c \
-					source/r_sprite.c \
 					source/r_surf.c \
 					source/r_vars.c \
 					source/sbar.c \
@@ -97,7 +97,7 @@ CFILES	+=			source/pr_cmds.c \
 					source/view.c \
 					source/wad.c \
 					source/world.c \
-					source/zone.c
+					source/zone.c 
 
 #
 #========================================(Compile)
@@ -106,7 +106,7 @@ CFILES	+=			source/pr_cmds.c \
 OFILES = $(SFILES:.S=.o) $(CFILES:.c=.o)
 
 $(PROGRAM):	$(OFILES)
-	$(CC) $(OFILES) $(LDFLAGS) -o $@
+			$(CC) $(CFLAGS) $(OFILES) -o $@ $(LDFLAGS)
 
 all: $(PROGRAM)
 

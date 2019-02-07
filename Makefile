@@ -1,12 +1,3 @@
-#
-# DINGUX SDK for Cygwin / Version: 0.1
-# DINGUX Makefile by Rikku2000
-#
-
-#
-#========================================(Config)
-#
-
 # Software Name
 PROGRAM = quake.elf
 
@@ -15,36 +6,47 @@ CC := gcc
 CXX := gcc
 STRIP := 
 
+TYR_RELEASE := v0.62-pre
+TYR_GIT := $(shell git describe --dirty 2> /dev/null)
+TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
+TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
+
 # Linker
 LDFLAGS = -lSDL -lz -lm
-CFLAGS = -O0 -g3 -Wall -I/usr/include/SDL -DARCADE_MINI
-CXXFLAGS = 
+CFLAGS = -O2 -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
 
 # Include
 INCLUDES := 
 
-# Libs
-LIBS += 
-
 NET_FOLDER = 
 
-CFLAGS +=  -Isource/$(NET_FOLDER) -Isource
-CFILES = 			source/$(NET_FOLDER)/host.c \
-					source/$(NET_FOLDER)/menu.c \
-					source/$(NET_FOLDER)/screen.c \
-					source/$(NET_FOLDER)/net_loop.c \
-					source/$(NET_FOLDER)/net_main.c \
-					source/$(NET_FOLDER)/net_nspire.c \
-					source/$(NET_FOLDER)/net_vcr.c
+CFLAGS +=  -Isource
+CFILES = 			source/host.c \
+					source/menu.c \
+					source/screen.c \
+					source/net_loop.c \
+					source/net_main.c \
+					source/net_common.c \
+					source/net_none.c \
+					source/net_dgrm.c
 
 CFILES	+=			source/sv_main.c \
 					source/pr_exec.c \
+					source/sdl_common.c \
+					source/vid_mode.c \
+					source/rb_tree.c \
+					source/cd_common.c \
+					source/alias_model.c \
+					source/r_model.c \
 					source/pr_cmds.c \
 					source/pr_edict.c \
 					source/cd_null.c \
 					source/vid_sdl.c \
+					source/shell.c \
+					source/r_sprite.c \
+					source/sprite_model.c \
 					source/snd_sdl.c \
-					source/sys_sdl.c \
+					source/sys_unix.c \
 					source/chase.c \
 					source/cl_demo.c \
 					source/cl_input.c \
@@ -67,7 +69,6 @@ CFILES	+=			source/sv_main.c \
 					source/d_sprite.c \
 					source/d_surf.c \
 					source/d_vars.c \
-					source/d_zpoint.c \
 					source/draw.c \
 					source/host_cmd.c \
 					source/keys.c \
@@ -85,7 +86,6 @@ CFILES	+=			source/sv_main.c \
 					source/r_misc.c \
 					source/r_part.c \
 					source/r_sky.c \
-					source/r_sprite.c \
 					source/r_surf.c \
 					source/r_vars.c \
 					source/sbar.c \
@@ -98,8 +98,7 @@ CFILES	+=			source/sv_main.c \
 					source/view.c \
 					source/wad.c \
 					source/world.c \
-					source/zone.c \
-					source/d_scan_nspirec.c
+					source/zone.c 
 
 #
 #========================================(Compile)
@@ -108,7 +107,7 @@ CFILES	+=			source/sv_main.c \
 OFILES = $(SFILES:.S=.o) $(CFILES:.c=.o)
 
 $(PROGRAM):	$(OFILES)
-			$(CXX) $(OFILES) $(LDFLAGS) -o $@
+			$(CC) $(CFLAGS) $(OFILES) -o $@ $(LDFLAGS)
 
 all: $(PROGRAM)
 

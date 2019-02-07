@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -17,24 +17,28 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-//
-// nonintel.c: code for non-Intel processors only
-//
+
+/*
+ * nonintel.c: code for non-Intel processors only
+ */
+
+#ifdef GLQUAKE
+#error "File not required for GLQUAKE"
+#endif
 
 #include "quakedef.h"
 #include "r_local.h"
 #include "d_local.h"
-
-#if	!id386
 
 /*
 ================
 R_Surf8Patch
 ================
 */
-void R_Surf8Patch ()
+void
+R_Surf8Patch()
 {
-	// we only patch code on Intel
+    // we only patch code on Intel
 }
 
 
@@ -43,9 +47,10 @@ void R_Surf8Patch ()
 R_Surf16Patch
 ================
 */
-void R_Surf16Patch ()
+void
+R_Surf16Patch()
 {
-	// we only patch code on Intel
+    // we only patch code on Intel
 }
 
 
@@ -54,11 +59,8 @@ void R_Surf16Patch ()
 R_SurfacePatch
 ================
 */
-void R_SurfacePatch (void)
+void
+R_SurfacePatch(void)
 {
-	// we only patch code on Intel
+    // we only patch code on Intel
 }
-
-
-#endif	// !id386
-

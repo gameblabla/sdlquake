@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -19,13 +19,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // wad.c
 
+#include "common.h"
 #include "quakedef.h"
-
-int			wad_numlumps;
-lumpinfo_t	*wad_lumps;
-byte		*wad_base;
-
-void SwapPic (qpic_t *pic);
+#include "sys.h"
+#include "wad.h"
 
 /*
 ==================
@@ -38,26 +35,25 @@ Space padding is so names can be printed nicely in tables.
 Can safely be performed in place.
 ==================
 */
-void W_CleanupName (char *in, char *out)
+void
+W_CleanupName(const char *in, char *out)
 {
-	int		i;
-	int		c;
-	
-	for (i=0 ; i<16 ; i++ )
-	{
-		c = in[i];
-		if (!c)
-			break;
-			
-		if (c >= 'A' && c <= 'Z')
-			c += ('a' - 'A');
-		out[i] = c;
-	}
-	
-	for ( ; i< 16 ; i++ )
-		out[i] = 0;
-}
+    int i;
+    int c;
 
+    for (i = 0; i < LUMP_NAMELEN - 1; i++) {
+	c = in[i];
+	if (!c)
+	    break;
+
+	if (c >= 'A' && c <= 'Z')
+	    c += ('a' - 'A');
+	out[i] = c;
+    }
+
+    for (; i < LUMP_NAMELEN; i++)
+	out[i] = 0;
+}
 
 
 /*
@@ -65,37 +61,37 @@ void W_CleanupName (char *in, char *out)
 W_LoadWadFile
 ====================
 */
-void W_LoadWadFile (char *filename)
+void
+W_LoadWadFile(wad_t *wad, const char *filename)
 {
-	lumpinfo_t		*lump_p;
-	wadinfo_t		*header;
-	unsigned		i;
-	int				infotableofs;
-	
-	wad_base = COM_LoadHunkFile (filename);
-	if (!wad_base)
-		Sys_Error ("W_LoadWadFile: couldn't load %s", filename);
+    lumpinfo_t *lump;
+    wadinfo_t *header;
+    unsigned i;
+    int infotableofs;
 
-	header = (wadinfo_t *)wad_base;
-	
-	if (header->identification[0] != 'W'
+    wad->base = COM_LoadHunkFile(filename);
+    if (!wad->base)
+	Sys_Error("%s: couldn't load %s", __func__, filename);
+
+    header = (wadinfo_t *)wad->base;
+
+    if (header->identification[0] != 'W'
 	|| header->identification[1] != 'A'
 	|| header->identification[2] != 'D'
 	|| header->identification[3] != '2')
-		Sys_Error ("Wad file %s doesn't have WAD2 id\n",filename);
-		
-	wad_numlumps = LittleLong(header->numlumps);
-	infotableofs = LittleLong(header->infotableofs);
-	wad_lumps = (lumpinfo_t *)(wad_base + infotableofs);
-	
-	for (i=0, lump_p = wad_lumps ; i<wad_numlumps ; i++,lump_p++)
-	{
-		lump_p->filepos = LittleLong(lump_p->filepos);
-		lump_p->size = LittleLong(lump_p->size);
-		W_CleanupName (lump_p->name, lump_p->name);
-		if (lump_p->type == TYP_QPIC)
-			SwapPic ( (qpic_t *)(wad_base + lump_p->filepos));
-	}
+	Sys_Error("Wad file %s doesn't have WAD2 id", filename);
+
+    wad->numlumps = LittleLong(header->numlumps);
+    infotableofs = LittleLong(header->infotableofs);
+    wad->lumps = (lumpinfo_t *)(wad->base + infotableofs);
+
+    for (i = 0, lump = wad->lumps; i < wad->numlumps; i++, lump++) {
+	lump->filepos = LittleLong(lump->filepos);
+	lump->size = LittleLong(lump->size);
+	W_CleanupName(lump->name, lump->name);
+	if (lump->type == TYP_QPIC)
+	    SwapDPic((dpic8_t *)(wad->base + lump->filepos));
+    }
 }
 
 
@@ -104,43 +100,44 @@ void W_LoadWadFile (char *filename)
 W_GetLumpinfo
 =============
 */
-lumpinfo_t	*W_GetLumpinfo (char *name)
+lumpinfo_t *
+W_GetLumpinfo(wad_t *wad, const char *name)
 {
-	int		i;
-	lumpinfo_t	*lump_p;
-	char	clean[16];
-	
-	W_CleanupName (name, clean);
-	
-	for (lump_p=wad_lumps, i=0 ; i<wad_numlumps ; i++,lump_p++)
-	{
-		if (!strcmp(clean, lump_p->name))
-			return lump_p;
-	}
-	
-	Sys_Error ("W_GetLumpinfo: %s not found", name);
-	return NULL;
+    int i;
+    lumpinfo_t *lump;
+    char clean[LUMP_NAMELEN];
+
+    W_CleanupName(name, clean);
+
+    for (lump = wad->lumps, i = 0; i < wad->numlumps; i++, lump++) {
+	if (!strcmp(clean, lump->name))
+	    return lump;
+    }
+
+    Sys_Error("%s: %s not found", __func__, name);
 }
 
-void *W_GetLumpName (char *name)
+void *
+W_GetLumpName(wad_t *wad, const char *name)
 {
-	lumpinfo_t	*lump;
-	
-	lump = W_GetLumpinfo (name);
-	
-	return (void *)(wad_base + lump->filepos);
+    lumpinfo_t *lump;
+
+    lump = W_GetLumpinfo(wad, name);
+
+    return wad->base + lump->filepos;
 }
 
-void *W_GetLumpNum (int num)
+void *
+W_GetLumpNum(wad_t *wad, int num)
 {
-	lumpinfo_t	*lump;
-	
-	if (num < 0 || num > wad_numlumps)
-		Sys_Error ("W_GetLumpNum: bad number: %i", num);
-		
-	lump = wad_lumps + num;
-	
-	return (void *)(wad_base + lump->filepos);
+    lumpinfo_t *lump;
+
+    if (num < 0 || num >= wad->numlumps)
+	Sys_Error("%s: bad number: %i", __func__, num);
+
+    lump = wad->lumps + num;
+
+    return wad->base + lump->filepos;
 }
 
 /*
@@ -151,8 +148,9 @@ automatic byte swapping
 =============================================================================
 */
 
-void SwapPic (qpic_t *pic)
+void
+SwapDPic(dpic8_t *dpic)
 {
-	pic->width = LittleLong(pic->width);
-	pic->height = LittleLong(pic->height);	
+    dpic->width = LittleLong(dpic->width);
+    dpic->height = LittleLong(dpic->height);
 }

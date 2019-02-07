@@ -1,21 +1,6 @@
-####################
-## Project Specific
-####################
-
+*.o
 *.elf
-*.cfg
-*.dge
-*.zip
-sdlquake
-quake.elf
-id1
+*.gcda
+id1/
 id1/*.pak
-id1/*.cfg
-source/*.o
-lastpc_working/
-source/net/*.o
-source/local_net/*.o
-source/portable/*.o
-source/pc/*.o
-release/
-core
+*.pak
