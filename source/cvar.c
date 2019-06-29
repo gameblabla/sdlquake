@@ -43,6 +43,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 static const char *cvar_null_string = "";
+struct stree_root cvar_tree;
 
 #define cvar_entry(ptr) container_of(ptr, struct cvar_s, stree)
 DECLARE_STREE_ROOT(cvar_tree);

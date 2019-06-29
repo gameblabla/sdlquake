@@ -31,7 +31,7 @@ uint16_t	d_8to16table[256];
 int32_t	VGA_width, VGA_height, VGA_rowubytes, VGA_bufferrowubytes = 0;
 uint8_t *VGA_pagebase;
 
-static SDL_Surface *screen = NULL, *real_screen;
+static SDL_Surface *screen = NULL, *rl_screen;
 
 static qboolean mouse_avail;
 static float   mouse_x, mouse_y;
@@ -100,6 +100,9 @@ void    VID_Init (const uint8_t *palette)
             Sys_Error("VID: Bad window height\n");
     }
 
+    // Set video width, height and flags
+    flags = (SDL_SWSURFACE|SDL_HWPALETTE);
+
     if ( COM_CheckParm ("-fullscreen") )
         flags |= SDL_FULLSCREEN;
 
@@ -108,10 +111,10 @@ void    VID_Init (const uint8_t *palette)
     }
 
     // Initialize display 
-	if (!(real_screen = SDL_SetVideoMode(320, 240, 16, SDL_HWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
+	if (!(rl_screen = SDL_SetVideoMode(vid.width, vid.height, 16, SDL_HWSURFACE|SDL_ASYNCBLIT|SDL_ANYFORMAT|SDL_HWPALETTE)))
 		Sys_Error("VID: Couldn't set video mode: %s\n", SDL_GetError());
-	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 8, 0,0,0,0);
-	
+	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 8, 0,0,0,0);
+        
     VID_SetPalette(palette);
     SDL_WM_SetCaption("sdlquake","sdlquake");
     // now know everything we need to know about the buffer
@@ -177,11 +180,8 @@ void    VID_Update (vrect_t *rects)
         sdlrects[i].h = rect->height;
         ++i;
     }
-    
-	SDL_Surface* p = SDL_DisplayFormat(screen);
-	SDL_BlitSurface(p, NULL, real_screen, NULL);
-	SDL_UpdateRects(real_screen, n, sdlrects);
-	SDL_FreeSurface(p);
+    SDL_BlitSurface(screen, NULL, rl_screen, NULL);
+    SDL_UpdateRects(rl_screen, n, sdlrects);
 }
 
 /*
@@ -214,10 +214,8 @@ void D_EndDirectRect (int32_t		x, int32_t		y, int32_t		width, int32_t		height)
 {
     if (!screen) return;
     if (x < 0) x = screen->w+x-1;
-	SDL_Surface* p = SDL_DisplayFormat(screen);
-	SDL_BlitSurface(p, NULL, real_screen, NULL);
-	SDL_UpdateRect(real_screen, x, y, width, height);
-	SDL_FreeSurface(p);
+    SDL_BlitSurface(screen, NULL, rl_screen, NULL);
+    SDL_UpdateRect(rl_screen, x, y, width, height);
 }
 
 

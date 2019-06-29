@@ -37,10 +37,6 @@ static qboolean mouse_avail;
 static float   mouse_x, mouse_y;
 static int32_t		mouse_oldbuttonstate = 0;
 
-// No support for option menus
-void (*vid_menudrawfn)(void) = NULL;
-void (*vid_menukeyfn)(knum_t		key) = NULL;
-
 void   VID_SetPalette (const uint8_t *palette)
 {
     int32_t		i;

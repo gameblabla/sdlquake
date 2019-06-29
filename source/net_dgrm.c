@@ -55,6 +55,18 @@ static struct {
     byte data[NET_MAXMESSAGE];
 } packetBuffer;
 
+#ifdef QW_HACK
+static enum {
+    m_none, m_main, m_options, m_video, m_keys, m_quit
+} m_state;
+#else
+static enum {
+    m_none, m_main, m_singleplayer, m_load, m_save, m_multiplayer, m_setup,
+    m_options, m_video, m_keys, m_help, m_quit, m_lanconfig, m_gameoptions,
+    m_search, m_slist
+} m_state;
+#endif
+
 #ifdef DEBUG
 static const char *
 StrAddr(netadr_t *addr)
