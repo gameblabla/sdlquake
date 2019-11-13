@@ -2,7 +2,7 @@
 PROGRAM = sdlquake.dge
 
 # Compiler
-CC := /opt/rs97-toolchain-gcc73/bin/mipsel-linux-gcc
+CC := /opt/ritmix-toolchain/bin/mipsel-linux-gcc
 
 TYR_RELEASE := v0.62-pre
 TYR_GIT := $(shell git describe --dirty 2> /dev/null)
@@ -10,16 +10,16 @@ TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
 TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
 # Linker
-LDFLAGS = -lc -lgcc -lSDL -lm -Wl,--as-needed -Wl,--gc-sections -flto -s -no-pie 
-CFLAGS	= -O2 -fdata-sections -ffunction-sections -mno-fp-exceptions -mno-check-zero-division -mframe-header-opt -fsingle-precision-constant -fno-common -mips32 -fno-PIC -mno-abicalls -fno-PIC -flto
-CFLAGS	+= -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."  -DPAPK3S
+LDFLAGS = -lSDL -lz -lm -no-pie -s
+CFLAGS	=  -O1 -fno-PIC -fno-common -mips32 -fno-PIC -mno-abicalls
+CFLAGS 	+=  -DARCADE_MINI -fno-common
+CFLAGS	+= -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
 
 # Include
 INCLUDES := 
 
 NET_FOLDER = 
 
-CFLAGS +=  -Isource
 CFILES = 			source/host.c \
 					source/menu.c \
 					source/screen.c \
@@ -40,7 +40,7 @@ CFILES	+=			source/sv_main.c \
 					source/pr_cmds.c \
 					source/pr_edict.c \
 					source/cd_null.c \
-					source/vid_sdl.c \
+					source/vid_sdl_amini.c \
 					source/shell.c \
 					source/r_sprite.c \
 					source/sprite_model.c \

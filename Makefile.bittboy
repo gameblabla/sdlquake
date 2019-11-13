@@ -1,9 +1,9 @@
 # Software Name
-PROGRAM = quake.elf
+PROGRAM = sdlquake.dge
 
 # Compiler
 CHAINPREFIX=/opt/bittboy-toolchain
-CROSS_COMPILE=$(CHAINPREFIX)/usr/bin/arm-miyoo-linux-musleabi-
+CROSS_COMPILE=$(CHAINPREFIX)/usr/bin/arm-linux-
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
 STRIP = $(CROSS_COMPILE)strip
@@ -17,8 +17,8 @@ TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
 TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
 # Linker
-LDFLAGS = -Wl,--start-group -lasound -lSDL -lz -lm -flto -no-pie -s -Wl,--end-group
-CFLAGS 	= -O2 -fsingle-precision-constant -fno-common -DDINGUX
+LDFLAGS = -nodefaultlibs -lc -lgcc -lm -lSDL -lasound -flto -no-pie -s -Wl,--as-needed -Wl,--gc-sections
+CFLAGS 	= -Os -fdata-sections -ffunction-sections -fno-PIC -flto -fsingle-precision-constant -fno-common -DDINGUX
 CFLAGS	+= -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
 
 # Include

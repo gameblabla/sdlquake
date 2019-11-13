@@ -40,7 +40,7 @@ CFILES	+=			source/sv_main.c \
 					source/pr_cmds.c \
 					source/pr_edict.c \
 					source/cd_null.c \
-					source/vid_sdl_rs97.c \
+					source/vid_sdl_amini.c \
 					source/shell.c \
 					source/r_sprite.c \
 					source/sprite_model.c \

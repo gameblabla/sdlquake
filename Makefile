@@ -12,8 +12,8 @@ TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
 TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
 # Linker
-LDFLAGS = -lSDL -lz -lm
-CFLAGS = -O2 -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
+LDFLAGS = -lSDL -lz -lm -flto 
+CFLAGS = -Ofast -g3 -fno-common -flto -Wall -DNQ_HACK -DNDEBUG -DELF -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="."
 
 # Include
 INCLUDES := 
