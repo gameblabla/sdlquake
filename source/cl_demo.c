@@ -272,7 +272,7 @@ play [demoname]
 void
 CL_PlayDemo_f(void)
 {
-    char name[MAX_QPATH], forcetrack[12];
+    char name[MAX_QPATH], forcetrack[13];
     int i, c, err;
 
     if (cmd_source != src_command)

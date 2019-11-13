@@ -670,6 +670,7 @@ qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
 	//VID_Init(palette);
+	return 0;
 }
 
 /*

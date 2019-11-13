@@ -65,6 +65,8 @@ static qboolean noconinput = false;
 static qboolean nostdout = false;
 #endif
 
+char gamedir_argv[1024];
+
 /*
  * ===========================================================================
  * General Routines
@@ -329,6 +331,12 @@ main(int argc, const char *argv[])
 #endif
 
     memset(&parms, 0, sizeof(parms));
+    
+    if (argc > 1)
+    {
+		snprintf(gamedir_argv, sizeof(gamedir_argv), "%s", argv[1]);
+		printf("gamedir_argv %s\n", gamedir_argv);
+	}
 
     COM_InitArgv(argc, argv);
     parms.argc = com_argc;

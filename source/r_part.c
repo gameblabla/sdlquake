@@ -625,19 +625,19 @@ void
 CL_RunParticles(void)
 {
     particle_t *p, *kill;
-    float grav;
-    float time1, time2, time3;
-    float frametime;
-    float dvel;
+    float grav = 0.0f;
+    float time1 = 0.0f, time2 = 0.0f, time3 = 0.0f;
+    float frametime = 0.0f;
+    float dvel = 0.0f;
     int i;
 
 #ifdef NQ_HACK
     frametime = cl.time - cl.oldtime;
-    grav = frametime * sv_gravity.value * 0.05;
+    grav = frametime * sv_gravity.value * 0.05f;
 #endif
 #ifdef QW_HACK
     frametime = host_frametime;
-    grav = frametime * 800 * 0.05;
+    grav = frametime * 800 * 0.05f;
 #endif
     time3 = frametime * 15;
     time2 = frametime * 10;	// 15;
