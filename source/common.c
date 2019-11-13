@@ -52,6 +52,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define NUM_SAFE_ARGVS 7
 
+extern char gamedir_argv[1024];
+
 static const char *largv[MAX_NUM_ARGVS + NUM_SAFE_ARGVS + 1];
 static const char *argvdummy = " ";
 
@@ -2059,6 +2061,8 @@ COM_InitFilesystem(void)
 //
     COM_AddGameDirectory(com_basedir, "id1");
     COM_AddGameDirectory(home, ".tyrquake/id1");
+    
+    COM_AddGameDirectory(home, gamedir_argv);
 
 #ifdef NQ_HACK
     if (COM_CheckParm("-rogue")) {
